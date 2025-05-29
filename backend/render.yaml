@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: yolo-api
+    env: python
+    buildCommand: ""
+    startCommand: python app.py
+    envVars:
+      - key: PORT
+        value: 5000

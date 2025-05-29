@@ -14,11 +14,23 @@ interface NewsCardProps {
   link?: string
 }
 
-export default function NewsCard({ title, date, category, excerpt, imageUrl, link = "#" }: NewsCardProps) {
+export default function NewsCard({
+  title,
+  date,
+  category,
+  excerpt,
+  imageUrl,
+  link = "#",
+}: NewsCardProps) {
+  const safeImageUrl =
+    imageUrl && (imageUrl.startsWith("/") || imageUrl.startsWith("http"))
+      ? imageUrl
+      : "/placeholder.svg"
+
   return (
     <Card className="overflow-hidden flex flex-col h-full">
       <div className="relative h-48">
-        <Image src={imageUrl || "/placeholder.svg"} alt={title} fill className="object-cover" />
+        <Image src={safeImageUrl} alt={title} fill className="object-cover" />
         <div className="absolute top-2 right-2">
           <Badge variant="secondary" className="bg-cyan-700 text-white">
             {category}
