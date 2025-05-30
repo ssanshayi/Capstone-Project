@@ -63,9 +63,9 @@ def predict():
     except PermissionError:
         pass  
 
-
-
 if __name__ == "__main__":
-    print(" Flask server is starting...")
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    print("🚀 Flask server is starting...")
+    app.run(host="0.0.0.0", port=port)
+
 
