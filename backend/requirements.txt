@@ -1,3 +1,5 @@
 flask
 ultralytics
+opencv-python
 Pillow
+numpy

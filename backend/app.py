@@ -17,34 +17,40 @@ def predict():
 
     file = request.files['file']
     suffix = os.path.splitext(file.filename)[-1].lower()
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-        file.save(temp_file.name)
-        try:
-            if suffix in [".jpg", ".jpeg", ".png"]:
-                results = model(temp_file.name)
-                predictions = []
-                for pred in results[0].boxes:
-                    cls = int(pred.cls[0])
-                    conf = float(pred.conf[0])
-                    predictions.append({
-                        "class": results[0].names[cls],
-                        "confidence": round(conf, 2)
-                    })
-                return jsonify(predictions)
-            elif suffix in [".mp4", ".mov", ".avi", ".mkv"]:
-                output_path = detect_video_and_save(temp_file.name)
-                return send_file(output_path, mimetype='video/mp4')
-            else:
-                return jsonify({"error": "Unsupported file type"}), 400
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-        finally:
-            import time
-            time.sleep(1)
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    temp_file.close()
+    file.save(temp_file.name)
+
     try:
-        os.unlink(temp_file.name)
-    except PermissionError:
-        pass
+        if suffix in [".jpg", ".jpeg", ".png"]:
+            results = model(temp_file.name)
+            predictions = []
+            for pred in results[0].boxes:
+                cls = int(pred.cls[0])
+                conf = float(pred.conf[0])
+                predictions.append({
+                    "class": results[0].names[cls],
+                    "confidence": round(conf, 2)
+                })
+            return jsonify(predictions)
+
+        elif suffix in [".mp4", ".mov", ".avi", ".mkv"]:
+            output_path = detect_video_and_save(temp_file.name)
+            return send_file(output_path, mimetype='video/mp4')
+
+        else:
+            return jsonify({"error": "Unsupported file type"}), 400
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        import time
+        time.sleep(1)
+        try:
+            os.unlink(temp_file.name)
+        except Exception:
+            pass
 
 def detect_video_and_save(file_path):
     cap = cv2.VideoCapture(file_path)
