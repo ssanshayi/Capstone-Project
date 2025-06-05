@@ -9,7 +9,7 @@ app = Flask(__name__)
 CORS(app)
 
 model = YOLO("best.pt")
-print("✅ YOLOv8 模型加载成功！")
+print(" YOLOv8 loading success!")
 
 @app.route("/") 
 def home():
@@ -98,4 +98,4 @@ def detect_video_and_save(file_path):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     print("Flask server is starting...")
-    app.run(host="127.0.0.1", port=5000)
+    app.run(host="0.0.0.0", port=port)
