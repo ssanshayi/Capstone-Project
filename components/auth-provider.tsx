@@ -1,9 +1,6 @@
 "use client"
-
-import type React from "react"
-
-import { AuthProvider as AuthContextProvider } from "@/lib/auth"
+import { AuthProvider as RealProvider } from "@/lib/auth"
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  return <AuthContextProvider>{children}</AuthContextProvider>
+  return <RealProvider>{children}</RealProvider>
 }

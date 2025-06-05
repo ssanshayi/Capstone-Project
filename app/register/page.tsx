@@ -1,6 +1,5 @@
+// app/register/page.tsx
 "use client"
-
-import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
@@ -9,7 +8,14 @@ import { useAuth } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -43,15 +49,11 @@ export default function RegisterPage() {
       return
     }
 
-    try {
-      const success = await register(name, email, password)
-      if (success) {
-        router.push("/profile")
-      } else {
-        setError("Email already in use. Please try a different email.")
-      }
-    } catch (err) {
-      setError("An error occurred during registration. Please try again.")
+    const registerError = await register(name, email, password)
+    if (registerError) {
+      setError(registerError)
+    } else {
+      router.push("/profile")
     }
   }
 
@@ -76,7 +78,6 @@ export default function RegisterPage() {
               <Input
                 id="name"
                 type="text"
-                placeholder="John Doe"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -87,7 +88,6 @@ export default function RegisterPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -114,10 +114,14 @@ export default function RegisterPage() {
               />
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox id="terms" checked={acceptTerms} onCheckedChange={(checked) => setAcceptTerms(!!checked)} />
+              <Checkbox
+                id="terms"
+                checked={acceptTerms}
+                onCheckedChange={(checked) => setAcceptTerms(!!checked)}
+              />
               <label
                 htmlFor="terms"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed"
               >
                 I accept the{" "}
                 <Link href="#" className="text-cyan-700 hover:underline">

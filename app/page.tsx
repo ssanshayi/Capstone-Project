@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import NewsCard from "@/components/news-card"
 import ConservationStats from "@/components/conservation-stats"
-import AuthTest from "@/components/auth-test"
+import AuthTest from "../components/auth-test"
 import UploadForm from "@/components/uploadform";
 
 
