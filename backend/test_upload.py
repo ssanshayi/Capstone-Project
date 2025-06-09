@@ -1,6 +1,5 @@
 import requests
 
-# 设置本地 Flask 服务器地址
 url = "http://127.0.0.1:5000/predict"
 
 image_path = "sharkkk.png" 
