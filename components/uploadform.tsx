@@ -26,7 +26,7 @@ export default function UploadForm() {
     formData.append("file", file)
 
     try {
-      const response = await fetch("https://capstone-project2-x9ax.onrender.com/predict", {
+      const response = await fetch("https://capstone-project2.up.railway.app/predict", {
         method: "POST",
         body: formData,
       })
