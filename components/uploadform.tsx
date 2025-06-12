@@ -35,11 +35,11 @@ export default function UploadForm() {
       setResult(data.detections || [])
 
       if (data.image_url) {
-        setMediaUrl(data.image_url)
+        setMediaUrl("https://capstone-project2.up.railway.app" + data.image_url)
         setMediaType("image")
         setShowModal(true)
       } else if (data.video_url) {
-        setMediaUrl(data.video_url)
+        setMediaUrl("https://capstone-project2.up.railway.app" + data.video_url)
         setMediaType("video")
         setShowModal(true)
       }
@@ -93,19 +93,32 @@ export default function UploadForm() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div ref={modalRef} className="bg-white rounded-xl p-6 shadow-lg max-w-2xl w-full">
             <h2 className="text-xl font-semibold text-center text-cyan-800 mb-4">Detection Results</h2>
+
             {mediaUrl && mediaType === "image" && (
-              <img src={mediaUrl} alt="Detected result" className="w-full rounded" />
+              <>
+                <h3 className="text-lg font-medium text-gray-800 mb-2">Detected Image</h3>
+                <img src={mediaUrl} alt="Detected result" className="w-full rounded mb-4" />
+              </>
             )}
+
             {mediaUrl && mediaType === "video" && (
-              <video src={mediaUrl} controls className="w-full rounded" />
+              <>
+                <h3 className="text-lg font-medium text-gray-800 mb-2">Detected Video</h3>
+                <video src={mediaUrl} controls className="w-full rounded mb-4" />
+              </>
             )}
-            {result && (
-              <ul className="mt-4 list-disc pl-6 text-gray-700">
-                {result.map((item, index) => (
-                  <li key={index}>{item}</li>
-                ))}
-              </ul>
+
+            {result && result.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-lg font-medium text-gray-800 mb-2">Detected Species</h3>
+                <ul className="list-disc pl-6 text-gray-700">
+                  {result.map((item, index) => (
+                    <li key={index}>{item}</li>
+                  ))}
+                </ul>
+              </div>
             )}
+
             <div className="text-center mt-6">
               <button
                 onClick={() => setShowModal(false)}
