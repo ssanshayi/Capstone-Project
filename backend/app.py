@@ -25,7 +25,7 @@ def predict():
     file.save(temp_file.name)
 
     try:
-        # 处理图片
+        # image processing
         if suffix in [".jpg", ".jpeg", ".png"]:
             results = model(temp_file.name)
             predictions = []
@@ -43,7 +43,7 @@ def predict():
                 "type": "image"
             })
 
-        # 处理视频
+        # video processing
         elif suffix == ".mp4":
             video_output_path, predictions = detect_video_and_save(temp_file.name)
             filename = os.path.basename(video_output_path)
