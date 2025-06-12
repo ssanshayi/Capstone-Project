@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from ultralytics import YOLO
 import os, tempfile, cv2, uuid
@@ -20,47 +20,32 @@ def predict():
 
     file = request.files['file']
     suffix = os.path.splitext(file.filename)[-1].lower()
+    if suffix != ".mp4":
+        return jsonify({"error": "Only .mp4 video files are supported."}), 400
+
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
     temp_file.close()
     file.save(temp_file.name)
 
     try:
-        if suffix in [".jpg", ".jpeg", ".png"]:
-            results = model(temp_file.name)
-            predictions = []
-            if results[0].boxes is not None:
-                for pred in results[0].boxes:
-                    cls = int(pred.cls[0])
-                    predictions.append(results[0].names[cls])
-            result_frame = results[0].plot()
-            image_result_path = os.path.join("static/results", f"{uuid.uuid4().hex}.jpg")
-            cv2.imwrite(image_result_path, result_frame)
-            return jsonify({
-                "detections": predictions,
-                "image_url": f"/{image_result_path}",
-                "type": "image"
-            })
-
-        elif suffix in [".mp4", ".mov", ".avi", ".mkv"]:
-            video_output_path, predictions = detect_video_and_save(temp_file.name)
-            filename = os.path.basename(video_output_path)
-            return jsonify({
-                "detections": predictions,
-                "video_url": f"/static/results/{filename}",
-                "type": "video"
-            })
-
-        else:
-            return jsonify({"error": "Unsupported file type"}), 400
-
+        video_output_path, predictions = detect_video_and_save(temp_file.name)
+        filename = os.path.basename(video_output_path)
+        return jsonify({
+            "detections": predictions,
+            "video_url": f"/static/results/{filename}",
+            "type": "video"
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
     finally:
         try:
             os.unlink(temp_file.name)
         except Exception:
             pass
+
+@app.route("/static/results/<path:filename>")
+def serve_static(filename):
+    return send_from_directory("static/results", filename, mimetype="video/mp4")
 
 def detect_video_and_save(file_path):
     cap = cv2.VideoCapture(file_path)
