@@ -9,7 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import NewsCard from "@/components/news-card"
 import ConservationStats from "@/components/conservation-stats"
 import AuthTest from "../components/auth-test"
-import UploadForm from "@/components/uploadform";
+import dynamic from "next/dynamic"
+const UploadForm = dynamic(() => import("@/components/uploadform"), { ssr: false })
+
 
 
 export default function Home() {
