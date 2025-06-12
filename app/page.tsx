@@ -1,3 +1,5 @@
+"use client"
+
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, Compass, Fish, BarChart3, Shield, BookOpen, Users, Globe, Mail } from "lucide-react"
@@ -11,8 +13,6 @@ import ConservationStats from "@/components/conservation-stats"
 import AuthTest from "../components/auth-test"
 import dynamic from "next/dynamic"
 const UploadForm = dynamic(() => import("@/components/uploadform"), { ssr: false })
-
-
 
 export default function Home() {
   return (
