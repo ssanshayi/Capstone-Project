@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from ultralytics import YOLO
 import os, tempfile, cv2, uuid
@@ -34,21 +34,22 @@ def predict():
                     cls = int(pred.cls[0])
                     predictions.append(results[0].names[cls])
             result_frame = results[0].plot()
-            image_result_path = os.path.join("static/results", f"{uuid.uuid4().hex}.jpg")
+            filename = f"{uuid.uuid4().hex}.jpg"
+            image_result_path = os.path.join("static/results", filename)
             cv2.imwrite(image_result_path, result_frame)
             return jsonify({
                 "detections": predictions,
-                "image_url": f"/static/results/{os.path.basename(image_result_path)}",
+                "media_url": f"/image/{filename}",
                 "type": "image"
             })
 
-        # video processing, only support mp4
+        # video processing 
         elif suffix == ".mp4":
             video_output_path, predictions = detect_video_and_save(temp_file.name)
             filename = os.path.basename(video_output_path)
             return jsonify({
                 "detections": predictions,
-                "video_url": f"/static/results/{filename}",
+                "media_url": f"/video/{filename}",
                 "type": "video"
             })
 
@@ -64,18 +65,27 @@ def predict():
         except Exception:
             pass
 
-@app.route("/static/results/<path:filename>")
-def serve_static(filename):
-    ext = os.path.splitext(filename)[-1].lower()
-    mimetype = "video/mp4" if ext == ".mp4" else "image/jpeg"
-    return send_from_directory("static/results", filename, mimetype=mimetype)
+@app.route("/image/<filename>")
+def get_image(filename):
+    path = os.path.join("static/results", filename)
+    if not os.path.exists(path):
+        return "Not Found", 404
+    
+    return send_file(path, mimetype="image/jpeg")
+
+@app.route("/video/<filename>")
+def get_video(filename):
+    path = os.path.join("static/results", filename)
+    if not os.path.exists(path):
+        return "Not Found", 404
+    return send_file(path, mimetype="video/mp4")
 
 def detect_video_and_save(file_path):
     cap = cv2.VideoCapture(file_path)
     filename = f"{uuid.uuid4().hex}_out.mp4"
     output_path = os.path.join("static/results", filename)
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    fps = cap.get(cv2.CAP_PROP_FPS)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 24
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))

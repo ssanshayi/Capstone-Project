@@ -1,5 +1,4 @@
 "use client"
-
 import { useState, useRef, useEffect } from "react"
 
 export default function UploadForm() {
@@ -11,6 +10,8 @@ export default function UploadForm() {
   const [error, setError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const modalRef = useRef<HTMLDivElement>(null)
+
+  const API_BASE = "https://capstone-project2.up.railway.app"
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,7 +27,7 @@ export default function UploadForm() {
     formData.append("file", file)
 
     try {
-      const response = await fetch("https://capstone-project2.up.railway.app/predict", {
+      const response = await fetch(API_BASE + "/predict", {
         method: "POST",
         body: formData,
       })
@@ -34,13 +35,9 @@ export default function UploadForm() {
       const data = await response.json()
       setResult(data.detections || [])
 
-      if (data.image_url) {
-        setMediaUrl("https://capstone-project2.up.railway.app" + data.image_url)
-        setMediaType("image")
-        setShowModal(true)
-      } else if (data.video_url) {
-        setMediaUrl("https://capstone-project2.up.railway.app" + data.video_url)
-        setMediaType("video")
+      if (data.media_url && data.type) {
+        setMediaUrl(API_BASE + data.media_url)
+        setMediaType(data.type)
         setShowModal(true)
       }
     } catch (err) {
@@ -98,6 +95,13 @@ export default function UploadForm() {
               <>
                 <h3 className="text-lg font-medium text-gray-800 mb-2">Detected Image</h3>
                 <img src={mediaUrl} alt="Detected result" className="w-full rounded mb-4" />
+                <a
+                  href={mediaUrl}
+                  download
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mr-4"
+                >
+                  Download Detected Image
+                </a>
               </>
             )}
 
@@ -105,6 +109,13 @@ export default function UploadForm() {
               <>
                 <h3 className="text-lg font-medium text-gray-800 mb-2">Detected Video</h3>
                 <video src={mediaUrl} controls className="w-full rounded mb-4" />
+                <a
+                  href={mediaUrl}
+                  download
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mr-4"
+                >
+                  Download Detected Video
+                </a>
               </>
             )}
 
