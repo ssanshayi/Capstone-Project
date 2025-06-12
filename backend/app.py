@@ -25,7 +25,7 @@ def predict():
     file.save(temp_file.name)
 
     try:
-        # image processing
+        # 处理图片
         if suffix in [".jpg", ".jpeg", ".png"]:
             results = model(temp_file.name)
             predictions = []
@@ -39,17 +39,17 @@ def predict():
             cv2.imwrite(image_result_path, result_frame)
             return jsonify({
                 "detections": predictions,
-                "media_url": f"/image/{filename}",
+                "media_url": f"/static/results/{filename}",
                 "type": "image"
             })
 
-        # video processing 
+        # 处理视频
         elif suffix == ".mp4":
             video_output_path, predictions = detect_video_and_save(temp_file.name)
             filename = os.path.basename(video_output_path)
             return jsonify({
                 "detections": predictions,
-                "media_url": f"/video/{filename}",
+                "media_url": f"/static/results/{filename}",
                 "type": "video"
             })
 
@@ -65,20 +65,11 @@ def predict():
         except Exception:
             pass
 
-@app.route("/image/<filename>")
-def get_image(filename):
-    path = os.path.join("static/results", filename)
-    if not os.path.exists(path):
-        return "Not Found", 404
-    
-    return send_file(path, mimetype="image/jpeg")
-
-@app.route("/video/<filename>")
-def get_video(filename):
-    path = os.path.join("static/results", filename)
-    if not os.path.exists(path):
-        return "Not Found", 404
-    return send_file(path, mimetype="video/mp4")
+@app.route("/static/results/<path:filename>")
+def serve_static(filename):
+    ext = os.path.splitext(filename)[-1].lower()
+    mimetype = "video/mp4" if ext == ".mp4" else "image/jpeg"
+    return send_file(os.path.join("static/results", filename), mimetype=mimetype)
 
 def detect_video_and_save(file_path):
     cap = cv2.VideoCapture(file_path)
