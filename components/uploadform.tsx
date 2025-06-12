@@ -53,33 +53,9 @@ export default function UploadForm() {
         setShowModal(false)
       }
     }
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setShowModal(false)
-      }
-    }
-
-    if (showModal) {
-      document.addEventListener("mousedown", handleClickOutside)
-      document.addEventListener("keydown", handleKeyDown)
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-      document.removeEventListener("keydown", handleKeyDown)
-    }
+    if (showModal) document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [showModal])
-
-  const downloadMedia = () => {
-    if (!mediaUrl) return
-    const a = document.createElement("a")
-    a.href = mediaUrl
-    a.download = mediaType === "image" ? "detected_result.jpg" : "detected_video.mp4"
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-  }
 
   return (
     <div className="max-w-xl mx-auto p-6 bg-white rounded shadow">
@@ -100,11 +76,7 @@ export default function UploadForm() {
           disabled={loading}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
         >
-          {loading
-            ? file?.type.includes("video")
-              ? "Processing video..."
-              : "Processing image..."
-            : "Upload & Detect"}
+          {loading ? (file?.type.includes("video") ? "Processing video..." : "Processing image...") : "Upload & Detect"}
         </button>
       </form>
 
@@ -112,28 +84,22 @@ export default function UploadForm() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div ref={modalRef} className="bg-white rounded-xl p-6 shadow-lg max-w-2xl w-full relative">
-            {/* 右上角 X 按钮 */}
-            <button
-              onClick={() => setShowModal(false)}
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl font-bold"
-              aria-label="Close"
-            >
-              ×
-            </button>
-
+          <div ref={modalRef} className="bg-white rounded-xl p-6 shadow-lg max-w-2xl w-full">
             <h2 className="text-xl font-semibold text-center text-cyan-800 mb-4">Detection Results</h2>
 
             {mediaUrl && mediaType === "image" && (
               <>
                 <h3 className="text-lg font-medium text-gray-800 mb-2">Detected Image</h3>
                 <img src={mediaUrl} alt="Detected result" className="w-full rounded mb-4" />
-                <button
-                  onClick={downloadMedia}
+                <a
+                  href={mediaUrl}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mr-4"
                 >
                   Download Detected Image
-                </button>
+                </a>
               </>
             )}
 
@@ -141,12 +107,15 @@ export default function UploadForm() {
               <>
                 <h3 className="text-lg font-medium text-gray-800 mb-2">Detected Video</h3>
                 <video src={mediaUrl} controls className="w-full rounded mb-4" />
-                <button
-                  onClick={downloadMedia}
+                <a
+                  href={mediaUrl}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mr-4"
                 >
                   Download Detected Video
-                </button>
+                </a>
               </>
             )}
 
