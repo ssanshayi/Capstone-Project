@@ -85,7 +85,7 @@ def detect_video_and_save(file_path):
     if not cap.isOpened():
         raise RuntimeError("Failed to open input video.")
 
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*'avc1')  # 更广泛兼容
     fps = cap.get(cv2.CAP_PROP_FPS) or 24
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -98,6 +98,7 @@ def detect_video_and_save(file_path):
     frame_count = 0
     skip_frame = 10
     written_frame_count = 0
+    first_frame_written = False
 
     while True:
         ret, frame = cap.read()
@@ -105,6 +106,12 @@ def detect_video_and_save(file_path):
             break
 
         frame_count += 1
+
+        if not first_frame_written:
+            out.write(frame)
+            first_frame_written = True
+            written_frame_count += 1
+
         if frame_count % skip_frame != 0:
             out.write(frame)
             written_frame_count += 1
