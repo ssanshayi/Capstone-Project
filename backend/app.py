@@ -80,14 +80,23 @@ def detect_video_and_save(file_path):
     cap = cv2.VideoCapture(file_path)
     filename = f"{uuid.uuid4().hex}_out.mp4"
     output_path = os.path.join("static/results", filename)
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v') 
+
+    if not cap.isOpened():
+        raise RuntimeError("Failed to open input video.")
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     fps = cap.get(cv2.CAP_PROP_FPS) or 24
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+    if not out.isOpened():
+        raise RuntimeError("Failed to create output video file.")
+
     detections = set()
     frame_count = 0
     skip_frame = 10
+    written_frame_count = 0
 
     while True:
         ret, frame = cap.read()
@@ -97,6 +106,7 @@ def detect_video_and_save(file_path):
         frame_count += 1
         if frame_count % skip_frame != 0:
             out.write(frame)
+            written_frame_count += 1
             continue
 
         results = model.predict(source=frame, show=False, conf=0.25, verbose=False, imgsz=512)
@@ -106,16 +116,18 @@ def detect_video_and_save(file_path):
                 detections.add(results[0].names[cls])
         result_frame = results[0].plot()
         out.write(result_frame)
+        written_frame_count += 1
 
     cap.release()
     out.release()
 
     time.sleep(1)
 
-    if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
-        raise RuntimeError("Video generation failed or resulted in empty file")
+    if not os.path.exists(output_path) or os.path.getsize(output_path) == 0 or written_frame_count == 0:
+        raise RuntimeError("Video generation failed or no frames were written.")
 
-    print(f"Video saved to {output_path} - size: {os.path.getsize(output_path)} bytes")
+    print(f"Saved video to {output_path} ({written_frame_count} frames, {os.path.getsize(output_path)} bytes)")
+
     return output_path, list(detections)
 
 if __name__ == "__main__":
