@@ -46,7 +46,7 @@ export default function UploadForm() {
         setPerSecond(data.detections_per_second || null)
         setShowModal(true)
       }
-    } catch (err) {
+    } catch {
       setError("Detection failed. Please try again.")
     } finally {
       setLoading(false)
@@ -112,13 +112,21 @@ export default function UploadForm() {
             {mediaUrl && mediaType === "video" && (
               <>
                 <h3 className="text-lg font-medium text-gray-800 mb-2">Detected Video</h3>
-                <video src={mediaUrl} controls className="w-full rounded mb-4" />
+                <p className="mb-2 text-sm text-gray-600">Click the link below to watch the video in a new tab.</p>
+                <a
+                  href={mediaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline mb-4 block"
+                >
+                  View Detected Video
+                </a>
                 <a
                   href={mediaUrl}
                   download
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mr-4"
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                 >
                   Download Detected Video
                 </a>
