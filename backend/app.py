@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from ultralytics import YOLO
-from moviepy.editor import ImageSequenceClip
 import os, tempfile, cv2, uuid, numpy as np
 
 app = Flask(__name__)
