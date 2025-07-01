@@ -6,7 +6,7 @@ import os, tempfile, cv2, uuid, time
 app = Flask(__name__)
 CORS(app)
 
-model = YOLO("backend/best.pt") 
+model = YOLO("best.pt") 
 os.makedirs("static/results", exist_ok=True)
 
 @app.route("/")
