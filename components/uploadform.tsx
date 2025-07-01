@@ -6,6 +6,8 @@ export default function UploadForm() {
   const [result, setResult] = useState<string[] | null>(null)
   const [mediaUrl, setMediaUrl] = useState<string | null>(null)
   const [mediaType, setMediaType] = useState<"image" | "video" | null>(null)
+  const [frameCount, setFrameCount] = useState<number | null>(null)
+  const [perSecond, setPerSecond] = useState<Record<string, string[]> | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -22,6 +24,8 @@ export default function UploadForm() {
     setResult(null)
     setMediaUrl(null)
     setShowModal(false)
+    setFrameCount(null)
+    setPerSecond(null)
 
     const formData = new FormData()
     formData.append("file", file)
@@ -38,6 +42,8 @@ export default function UploadForm() {
       if (data.media_url && data.type) {
         setMediaUrl(API_BASE + data.media_url)
         setMediaType(data.type)
+        setFrameCount(data.frames_written || null)
+        setPerSecond(data.detections_per_second || null)
         setShowModal(true)
       }
     } catch (err) {
@@ -116,6 +122,19 @@ export default function UploadForm() {
                 >
                   Download Detected Video
                 </a>
+                {frameCount !== null && <p className="text-gray-700 mt-2">Frames written: {frameCount}</p>}
+                {perSecond && (
+                  <div className="mt-4">
+                    <h3 className="text-lg font-medium text-gray-800 mb-1">Per-second Species</h3>
+                    <ul className="list-disc pl-6 text-gray-700 text-sm max-h-48 overflow-y-auto">
+                      {Object.entries(perSecond).map(([sec, species]) => (
+                        <li key={sec}>
+                          <strong>Second {sec}:</strong> {species.length > 0 ? species.join(", ") : "None"}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </>
             )}
 

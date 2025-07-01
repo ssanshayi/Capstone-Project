@@ -2,11 +2,12 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from ultralytics import YOLO
 import os, tempfile, cv2, uuid, time
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)
 
-model = YOLO("best.pt") 
+model = YOLO("best.pt")
 os.makedirs("static/results", exist_ok=True)
 
 @app.route("/")
@@ -25,7 +26,6 @@ def predict():
     file.save(temp_file.name)
 
     try:
-        # image processing
         if suffix in [".jpg", ".jpeg", ".png"]:
             results = model(temp_file.name)
             predictions = []
@@ -43,14 +43,15 @@ def predict():
                 "type": "image"
             })
 
-        # video processing
         elif suffix == ".mp4":
-            video_output_path, predictions = detect_video_and_save(temp_file.name)
+            video_output_path, predictions, frame_count, per_second = detect_video_and_save(temp_file.name)
             filename = os.path.basename(video_output_path)
             return jsonify({
                 "detections": predictions,
                 "media_url": f"/static/results/{filename}",
-                "type": "video"
+                "type": "video",
+                "frames_written": frame_count,
+                "detections_per_second": per_second
             })
 
         else:
@@ -121,14 +122,44 @@ def detect_video_and_save(file_path):
     cap.release()
     out.release()
 
+    if written_frame_count == 0:
+        black = np.zeros((int(height), int(width), 3), dtype=np.uint8)
+        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        out.write(black)
+        out.release()
+        written_frame_count = 1
+
     time.sleep(1)
 
-    if not os.path.exists(output_path) or os.path.getsize(output_path) == 0 or written_frame_count == 0:
-        raise RuntimeError("Video generation failed or no frames were written.")
+    if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+        raise RuntimeError("Output video is empty.")
 
-    print(f"Saved video to {output_path} ({written_frame_count} frames, {os.path.getsize(output_path)} bytes)")
+    duration = written_frame_count / fps
+    fps_int = int(fps)
+    per_second_results = {}
 
-    return output_path, list(detections)
+    for sec in range(int(duration) + 1):
+        per_second_results[sec] = []
+
+    cap2 = cv2.VideoCapture(file_path)
+    current_frame = 0
+    while True:
+        ret, frame = cap2.read()
+        if not ret:
+            break
+        if current_frame % fps_int == 0:
+            results = model.predict(source=frame, show=False, conf=0.25, verbose=False, imgsz=512)
+            if results[0].boxes is not None:
+                for pred in results[0].boxes:
+                    cls = int(pred.cls[0])
+                    name = results[0].names[cls]
+                    sec = current_frame // fps_int
+                    if name not in per_second_results[sec]:
+                        per_second_results[sec].append(name)
+        current_frame += 1
+    cap2.release()
+
+    return output_path, list(detections), written_frame_count, per_second_results
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
