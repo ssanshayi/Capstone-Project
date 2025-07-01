@@ -1,12 +1,12 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from ultralytics import YOLO
-import os, tempfile, cv2, uuid
+import os, tempfile, cv2, uuid, time
 
 app = Flask(__name__)
 CORS(app)
 
-model = YOLO("best.pt")
+model = YOLO("backend/best.pt") 
 os.makedirs("static/results", exist_ok=True)
 
 @app.route("/")
@@ -67,15 +67,20 @@ def predict():
 
 @app.route("/static/results/<path:filename>")
 def serve_static(filename):
-    ext = os.path.splitext(filename)[-1].lower()
-    mimetype = "video/mp4" if ext == ".mp4" else "image/jpeg"
-    return send_file(os.path.join("static/results", filename), mimetype=mimetype)
+    try:
+        file_path = os.path.join("static/results", filename)
+        if not os.path.exists(file_path):
+            return f"File not found: {file_path}", 404
+        mimetype = "video/mp4" if file_path.endswith(".mp4") else "image/jpeg"
+        return send_file(file_path, mimetype=mimetype)
+    except Exception as e:
+        return f"Internal Server Error: {str(e)}", 500
 
 def detect_video_and_save(file_path):
     cap = cv2.VideoCapture(file_path)
     filename = f"{uuid.uuid4().hex}_out.mp4"
     output_path = os.path.join("static/results", filename)
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v') 
     fps = cap.get(cv2.CAP_PROP_FPS) or 24
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -104,6 +109,13 @@ def detect_video_and_save(file_path):
 
     cap.release()
     out.release()
+
+    time.sleep(1)
+
+    if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+        raise RuntimeError("Video generation failed or resulted in empty file")
+
+    print(f"Video saved to {output_path} - size: {os.path.getsize(output_path)} bytes")
     return output_path, list(detections)
 
 if __name__ == "__main__":
