@@ -74,21 +74,24 @@ def serve_static(filename):
 
 def detect_video_and_save(file_path):
     cap = cv2.VideoCapture(file_path)
+    filename = f"{uuid.uuid4().hex}_out.avi"
+    output_path = os.path.join("static/results", filename)
+
     if not cap.isOpened():
         raise RuntimeError("Failed to open input video.")
 
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')  # 使用 AVI 常见编码
     fps = cap.get(cv2.CAP_PROP_FPS) or 24
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    filename = f"{uuid.uuid4().hex}_out.mp4"
-    output_path = os.path.join("static/results", filename)
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+    if not out.isOpened():
+        raise RuntimeError("Failed to create output video file.")
 
     detections = set()
-    per_second_results = {}
-    frames = []
-    skip_frame = 10
     frame_count = 0
+    skip_frame = 10
     written_frame_count = 0
 
     while True:
@@ -98,7 +101,7 @@ def detect_video_and_save(file_path):
 
         frame_count += 1
         if frame_count % skip_frame != 0:
-            frames.append(frame)
+            out.write(frame)
             written_frame_count += 1
             continue
 
@@ -108,21 +111,23 @@ def detect_video_and_save(file_path):
                 cls = int(pred.cls[0])
                 detections.add(results[0].names[cls])
         result_frame = results[0].plot()
-        frames.append(result_frame)
+        out.write(result_frame)
         written_frame_count += 1
 
     cap.release()
+    out.release()
 
     if written_frame_count == 0:
-        black = np.zeros((height, width, 3), dtype=np.uint8)
-        frames.append(black)
+        black = np.zeros((int(height), int(width), 3), dtype=np.uint8)
+        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        out.write(black)
+        out.release()
         written_frame_count = 1
-
-    clip = ImageSequenceClip(frames, fps=fps)
-    clip.write_videofile(output_path, codec="libx264", audio=False, verbose=False, logger=None)
 
     duration = written_frame_count / fps
     fps_int = int(fps)
+    per_second_results = {}
+
     for sec in range(int(duration) + 1):
         per_second_results[sec] = []
 
