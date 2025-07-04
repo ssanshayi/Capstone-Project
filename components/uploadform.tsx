@@ -9,6 +9,8 @@ export default function UploadForm() {
   const [result, setResult] = useState<string[] | null>(null)
   const [mediaUrl, setMediaUrl] = useState<string | null>(null)
   const [mediaType, setMediaType] = useState<"image" | "video" | null>(null)
+  const [frameCount, setFrameCount] = useState<number | null>(null)
+  const [perSecond, setPerSecond] = useState<Record<string, string[]> | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -45,6 +47,8 @@ export default function UploadForm() {
     setError(null)
     setResult(null)
     setMediaUrl(null)
+    setFrameCount(null)
+    setPerSecond(null)
     setShowModal(false)
 
     const formData = new FormData()
@@ -58,6 +62,8 @@ export default function UploadForm() {
 
       const data = await response.json()
       setResult(data.detections || [])
+      setFrameCount(data.frames_written || null)
+      setPerSecond(data.detections_per_second || null)
 
       if (data.media_url && data.type) {
         setMediaUrl(API_BASE + data.media_url)
@@ -140,6 +146,24 @@ export default function UploadForm() {
                 >
                   Download Detected Video
                 </a>
+
+                {frameCount !== null && (
+                  <p className="text-gray-700 mb-2">Frames written: {frameCount}</p>
+                )}
+
+                {perSecond && (
+                  <div className="mt-2">
+                    <h3 className="text-lg font-medium text-gray-800 mb-2">Per-second Species</h3>
+                    <ul className="list-disc pl-6 text-gray-700 max-h-48 overflow-y-auto">
+                      {Object.entries(perSecond).map(([sec, species]) => (
+                        <li key={sec}>
+                          <strong>Second {sec}:</strong>{" "}
+                          {species.length > 0 ? species.join(", ") : "None"}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </>
             )}
 
