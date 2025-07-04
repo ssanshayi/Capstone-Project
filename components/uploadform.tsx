@@ -1,22 +1,44 @@
 "use client"
 import { useState, useRef, useEffect } from "react"
+import { supabase } from "@/lib/supabase"
+import { toast } from "@/components/ui/use-toast"
+import { useRouter } from "next/navigation"
 
 export default function UploadForm() {
   const [file, setFile] = useState<File | null>(null)
   const [result, setResult] = useState<string[] | null>(null)
   const [mediaUrl, setMediaUrl] = useState<string | null>(null)
   const [mediaType, setMediaType] = useState<"image" | "video" | null>(null)
-  const [frameCount, setFrameCount] = useState<number | null>(null)
-  const [perSecond, setPerSecond] = useState<Record<string, string[]> | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const modalRef = useRef<HTMLDivElement>(null)
+  const [user, setUser] = useState<any>(null)
+  const router = useRouter()
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+    }
+    getUser()
+  }, [])
 
   const API_BASE = "https://capstone-project2.up.railway.app"
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: (
+          <span>
+            Please <a href="/login" className="underline text-cyan-700">log in</a> or <a href="/register" className="underline text-cyan-700">sign up</a> to use this feature.
+          </span>
+        ),
+      })
+      return
+    }
     if (!file) return
 
     setLoading(true)
@@ -24,8 +46,6 @@ export default function UploadForm() {
     setResult(null)
     setMediaUrl(null)
     setShowModal(false)
-    setFrameCount(null)
-    setPerSecond(null)
 
     const formData = new FormData()
     formData.append("file", file)
@@ -42,11 +62,9 @@ export default function UploadForm() {
       if (data.media_url && data.type) {
         setMediaUrl(API_BASE + data.media_url)
         setMediaType(data.type)
-        setFrameCount(data.frames_written || null)
-        setPerSecond(data.detections_per_second || null)
         setShowModal(true)
       }
-    } catch {
+    } catch (err) {
       setError("Detection failed. Please try again.")
     } finally {
       setLoading(false)
@@ -112,37 +130,16 @@ export default function UploadForm() {
             {mediaUrl && mediaType === "video" && (
               <>
                 <h3 className="text-lg font-medium text-gray-800 mb-2">Detected Video</h3>
-                <p className="mb-2 text-sm text-gray-600">Click the link below to watch the video in a new tab.</p>
-                <a
-                  href={mediaUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline mb-4 block"
-                >
-                  View Detected Video
-                </a>
+                <video src={mediaUrl} controls className="w-full rounded mb-4" />
                 <a
                   href={mediaUrl}
                   download
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mr-4"
                 >
                   Download Detected Video
                 </a>
-                {frameCount !== null && <p className="text-gray-700 mt-2">Frames written: {frameCount}</p>}
-                {perSecond && (
-                  <div className="mt-4">
-                    <h3 className="text-lg font-medium text-gray-800 mb-1">Per-second Species</h3>
-                    <ul className="list-disc pl-6 text-gray-700 text-sm max-h-48 overflow-y-auto">
-                      {Object.entries(perSecond).map(([sec, species]) => (
-                        <li key={sec}>
-                          <strong>Second {sec}:</strong> {species.length > 0 ? species.join(", ") : "None"}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </>
             )}
 

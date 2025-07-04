@@ -1,19 +1,40 @@
 "use client"
 
-import { useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth"
+import { getUserFavorites, removeFromFavorites } from "@/lib/favorites"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Heart, Search } from "lucide-react"
-import { marineSpeciesData } from "@/lib/data"
+import { Loader2, Heart, Search, Trash2 } from "lucide-react"
+import { toast } from "sonner"
+
+interface FavoriteSpecies {
+  id: string
+  species_id: string
+  created_at: string
+  marine_species: {
+    id: string
+    name: string
+    scientific_name: string
+    category: string
+    conservation_status: string
+    description: string
+    image_url: string
+    tags: string[]
+    population_trend: string
+    population_percentage: number
+  }
+}
 
 export default function FavoritesPage() {
   const { user, isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
+  const [favorites, setFavorites] = useState<FavoriteSpecies[]>([])
+  const [favoritesLoading, setFavoritesLoading] = useState(true)
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -22,7 +43,53 @@ export default function FavoritesPage() {
     }
   }, [isLoading, isAuthenticated, router])
 
-  if (isLoading) {
+  // 获取收藏列表
+  useEffect(() => {
+    if (user) {
+      fetchFavorites()
+    }
+  }, [user])
+
+  const fetchFavorites = async () => {
+    if (!user) return
+    
+    setFavoritesLoading(true)
+    try {
+      const { favorites: data, error } = await getUserFavorites(user.id)
+      
+      if (error) {
+        toast.error('Failed to fetch favorites list')
+        console.error('Error fetching favorites:', error)
+      } else {
+        setFavorites(data)
+      }
+    } catch (error) {
+      console.error('Error in fetchFavorites:', error)
+      toast.error('获取收藏列表失败')
+    } finally {
+      setFavoritesLoading(false)
+    }
+  }
+
+  const handleRemoveFavorite = async (speciesId: string) => {
+    if (!user) return
+    
+    try {
+      const { success, error } = await removeFromFavorites(user.id, speciesId)
+      
+      if (success) {
+        setFavorites(favorites.filter(fav => fav.species_id !== speciesId))
+        toast.success('Removed from favorites')
+      } else {
+        toast.error(error || 'Failed to remove')
+      }
+    } catch (error) {
+      console.error('Error removing favorite:', error)
+      toast.error('Failed to remove, please try again')
+    }
+  }
+
+  if (isLoading || favoritesLoading) {
     return (
       <div className="container mx-auto px-4 py-16 flex items-center justify-center">
         <div className="text-center">
@@ -37,8 +104,7 @@ export default function FavoritesPage() {
     return null // Will redirect to login
   }
 
-  // Get favorite species data
-  const favoriteSpecies = marineSpeciesData.filter((species) => user.favoriteSpecies.includes(species.id))
+  // Get favorite species data - now using real data from database
 
   // Get conservation status color
   const getStatusColor = (status: string) => {
@@ -65,7 +131,7 @@ export default function FavoritesPage() {
         </Button>
       </div>
 
-      {favoriteSpecies.length === 0 ? (
+      {favorites.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Heart className="h-16 w-16 text-gray-300 mb-4" />
@@ -81,40 +147,53 @@ export default function FavoritesPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {favoriteSpecies.map((species) => (
-            <Card key={species.id} className="overflow-hidden flex flex-col h-full">
-              <div className="relative h-48">
-                <Image src={species.imageUrl || "/placeholder.svg"} alt={species.name} fill className="object-cover" />
-                <div className="absolute top-2 right-2">
-                  <Badge className={`${getStatusColor(species.conservationStatus)} text-white`}>
-                    {species.conservationStatus}
-                  </Badge>
-                </div>
-              </div>
-              <CardHeader className="pb-2">
-                <CardTitle>{species.name}</CardTitle>
-                <CardDescription>{species.scientificName}</CardDescription>
-              </CardHeader>
-              <CardContent className="pb-2 flex-1">
-                <p className="text-sm text-gray-600 line-clamp-3 mb-3">{species.description}</p>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {species.tags.map((tag) => (
-                    <Badge key={tag} variant="outline" className="text-xs">
-                      {tag}
+          {favorites.map((favorite) => {
+            const species = favorite.marine_species
+            return (
+              <Card key={favorite.id} className="overflow-hidden flex flex-col h-full">
+                <div className="relative h-48">
+                  <Image src={species.image_url || "/placeholder.svg"} alt={species.name} fill className="object-cover" />
+                  <div className="absolute top-2 right-2">
+                    <Badge className={`${getStatusColor(species.conservation_status)} text-white`}>
+                      {species.conservation_status}
                     </Badge>
-                  ))}
+                  </div>
+                  <div className="absolute top-2 left-2">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleRemoveFavorite(species.id)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </CardContent>
-              <div className="p-4 pt-0 mt-auto flex gap-2">
-                <Button asChild variant="outline" className="flex-1">
-                  <Link href={`/species/${species.id}`}>Details</Link>
-                </Button>
-                <Button asChild className="flex-1">
-                  <Link href={`/tracking?species=${species.id}`}>Track</Link>
-                </Button>
-              </div>
-            </Card>
-          ))}
+                <CardHeader className="pb-2">
+                  <CardTitle>{species.name}</CardTitle>
+                  <CardDescription>{species.scientific_name}</CardDescription>
+                </CardHeader>
+                <CardContent className="pb-2 flex-1">
+                  <p className="text-sm text-gray-600 line-clamp-3 mb-3">{species.description}</p>
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {(species.tags || []).map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+                <div className="p-4 pt-0 mt-auto flex gap-2">
+                  <Button asChild variant="outline" className="flex-1">
+                    <Link href={`/species/${species.id}`}>Details</Link>
+                  </Button>
+                  <Button asChild className="flex-1">
+                    <Link href={`/tracking?species=${species.id}`}>Track</Link>
+                  </Button>
+                </div>
+              </Card>
+            )
+          })}
         </div>
       )}
     </div>

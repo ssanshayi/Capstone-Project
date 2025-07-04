@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Loader2 } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 
 export default function ResourceDetailPage() {
   const params = useParams()
@@ -19,20 +20,45 @@ export default function ResourceDetailPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Find the resource by ID
-    const foundResource = resourcesData.find((r) => r.id === params.id)
-
-    // Find related resources (same category)
-    const related =
-      foundResource &&
-      resourcesData.filter((r) => r.category === foundResource.category && r.id !== foundResource.id).slice(0, 3)
-
-    // Simulate loading
-    setTimeout(() => {
+    const fetchResource = async () => {
+      setLoading(true)
+      let foundResource = null
+      try {
+        const { data, error } = await supabase
+          .from("resources")
+          .select("*")
+          .eq("id", params.id)
+          .single()
+        if (data) {
+          foundResource = {
+            ...data,
+            featured: data.featured === true || data.featured === "true",
+            imageUrl: data.image_url,
+            authorAvatar: data.author_avatar,
+            readTime: data.read_time,
+          }
+        }
+      } catch (err) {
+        // ignore, fallback to static
+      }
+      if (!foundResource) {
+        // fallback to static data
+        const staticResource = resourcesData.find((r) => r.id === params.id)
+        if (staticResource) {
+          foundResource = staticResource
+        }
+      }
+      // Find related resources (same category)
+      let related = []
+      if (foundResource) {
+        related = resourcesData.filter((r) => r.category === foundResource.category && r.id !== foundResource.id).slice(0, 3)
+      }
       setResource(foundResource || null)
       setRelatedResources(related || [])
       setLoading(false)
-    }, 800)
+    }
+    fetchResource()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id])
 
   // If resource not found after loading, show 404

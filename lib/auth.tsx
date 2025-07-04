@@ -10,7 +10,7 @@ export interface User {
   name: string
   email: string
   avatar?: string
-  role: "user" | "researcher"
+  role: "user" | "researcher" | "admin"
   joinDate: string
   favoriteSpecies: string[]
 }
@@ -32,62 +32,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
+    let mounted = true
 
-          if (profile) {
-            setUser({
-              id: profile.id,
-              name: profile.name,
-              email: profile.email,
-              avatar: profile.avatar_url,
-              role: profile.role,
-              joinDate: profile.created_at,
-              favoriteSpecies: profile.favorite_species || []
-            })
-          }
+    const loadUserProfile = async (session: any) => {
+      if (!session?.user) {
+        if (mounted) setUser(null)
+        return
+      }
+
+      try {
+        // 直接使用Supabase Auth信息，避免查询profiles表
+        const user = session.user
+        
+        if (user && mounted) {
+          setUser({
+            id: user.id,
+            name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+            email: user.email,
+            avatar: user.user_metadata?.avatar_url,
+            role: user.user_metadata?.role || 'user', // 默认角色
+            joinDate: user.created_at,
+            favoriteSpecies: []
+          })
         }
       } catch (error) {
-        console.error('Error checking auth status:', error)
-      } finally {
-        setIsLoading(false)
+        console.error('Error loading user profile:', error)
+        if (mounted) setUser(null)
       }
     }
 
-    checkUser()
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        await loadUserProfile(session)
+      } catch (error) {
+        console.error('Error initializing auth:', error)
+      } finally {
+        if (mounted) setIsLoading(false)
+      }
+    }
+
+    initializeAuth()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_, session) => {
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-
-        if (profile) {
-          setUser({
-            id: profile.id,
-            name: profile.name,
-            email: profile.email,
-            avatar: profile.avatar_url,
-            role: profile.role,
-            joinDate: profile.created_at,
-            favoriteSpecies: profile.favorite_species || []
-          })
-        }
-      } else {
-        setUser(null)
-      }
+      // Auth state changed
+      await loadUserProfile(session)
+      if (mounted) setIsLoading(false)
     })
 
     return () => {
+      mounted = false
       subscription.unsubscribe()
     }
   }, [])
@@ -95,9 +89,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setIsLoading(true)
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
-      return true
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      
+      if (error) {
+        console.error("Login error:", error)
+        return false
+      }
+      
+      if (data.user && data.session) {
+        // 认证状态会通过 onAuthStateChange 自动更新
+        return true
+      }
+      
+      return false
     } catch (error) {
       console.error("Login error:", error)
       return false
@@ -106,28 +110,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+
   const register = async (name: string, email: string, password: string): Promise<string | null> => {
     try {
       setIsLoading(true)
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { name } }
+        options: { 
+          data: { 
+            full_name: name 
+          }
+        }
       })
+      
       if (authError) return authError.message
       if (!authData?.user) return "Signup failed: no user returned"
-
-      await supabase.from("profiles").insert({
-        id: authData.user.id,
-        email,
-        name,
-        role: "user",
-        created_at: new Date().toISOString(),
-        favorite_species: []
-      })
+      
       return null
     } catch (error: any) {
-      return error.message || "Unknown registration error"
+      return (error as any)?.message || "Unknown registration error"
     } finally {
       setIsLoading(false)
     }
@@ -146,15 +148,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true)
       if (!user) return false
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          name: userData.name,
+      
+      // 更新Supabase Auth用户metadata，避免查询profiles表
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          full_name: userData.name,
           avatar_url: userData.avatar,
           role: userData.role,
           favorite_species: userData.favoriteSpecies
-        })
-        .eq("id", user.id)
+        }
+      })
+      
       if (error) throw error
       setUser(prev => prev ? { ...prev, ...userData } : null)
       return true

@@ -4,35 +4,122 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useParams, notFound } from "next/navigation"
-import { ArrowLeft, MapPin, ExternalLink, Share2, Bookmark } from "lucide-react"
-import { marineSpeciesData } from "@/lib/data"
+import { ArrowLeft, MapPin, ExternalLink, Share2, Bookmark, BookmarkCheck } from "lucide-react"
+import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/lib/auth"
+import { isSpeciesFavorited, toggleFavorite } from "@/lib/favorites"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet"
-import "leaflet/dist/leaflet.css"
-import { Icon } from "leaflet"
-import { createColoredMarker } from "@/lib/icons"
+// Temporarily remove map functionality to fix SSR error
+// import dynamic from "next/dynamic"
+// const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false })
+// import { createColoredMarker } from "@/lib/icons"
 import SpeciesGallery from "@/components/species-gallery"
 import RelatedSpecies from "@/components/related-species"
+import { toast } from "sonner"
+
+interface MarineSpecies {
+  id: string
+  name: string
+  scientific_name: string
+  category: string
+  conservation_status: string
+  description: string
+  habitat: string
+  diet: string
+  lifespan: string
+  size_range: string
+  population_trend: string
+  population_percentage: number
+  image_url: string
+  tags: string[]
+  threats: string[]
+  created_at: string
+}
 
 export default function SpeciesDetailPage() {
   const params = useParams()
-  const [species, setSpecies] = useState<any>(null)
+  const { user, isAuthenticated } = useAuth()
+  const [species, setSpecies] = useState<MarineSpecies | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isFavorited, setIsFavorited] = useState(false)
+  const [favoritesLoading, setFavoritesLoading] = useState(false)
 
   useEffect(() => {
-    // Find the species by ID
-    const foundSpecies = marineSpeciesData.find((s) => s.id === params.id)
-
-    // Simulate loading
-    setTimeout(() => {
-      setSpecies(foundSpecies || null)
-      setLoading(false)
-    }, 800)
+    fetchSpeciesById(params.id as string)
   }, [params.id])
+
+  // Check favorite status
+  useEffect(() => {
+    if (user && species) {
+      checkFavoriteStatus()
+    }
+  }, [user, species])
+
+  const checkFavoriteStatus = async () => {
+    if (!user || !species) return
+    
+    const { isFavorited: favoriteStatus } = await isSpeciesFavorited(user.id, species.id)
+    setIsFavorited(favoriteStatus)
+  }
+
+  const handleToggleFavorite = async () => {
+    if (!user) {
+      toast.error('Please login first to favorite species')
+      return
+    }
+
+    if (!species) {
+      toast.error('Cannot favorite, species information not loaded')
+      return
+    }
+
+    setFavoritesLoading(true)
+
+    try {
+      const { success, error } = await toggleFavorite(user.id, species.id)
+      
+      if (success) {
+        setIsFavorited(!isFavorited)
+        toast.success(isFavorited ? 'Removed from favorites' : 'Added to favorites')
+      } else {
+        toast.error(error || 'Operation failed')
+      }
+    } catch (error) {
+      console.error('Toggle favorite error:', error)
+      toast.error('Operation failed, please try again')
+    } finally {
+      setFavoritesLoading(false)
+    }
+  }
+
+  const fetchSpeciesById = async (id: string) => {
+    try {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('marine_species')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) {
+        console.error('Error fetching species:', error)
+        toast.error('Failed to load species data')
+        setSpecies(null)
+      } else {
+        setSpecies(data)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Failed to load species data')
+      setSpecies(null)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // If species not found after loading, show 404
   if (!loading && !species) {
@@ -57,34 +144,8 @@ export default function SpeciesDetailPage() {
     return "text-gray-600"
   }
 
-  // Create a custom icon for the map
-  const getCustomIcon = () => {
-    if (!species) return null
-
-    let speciesType = "fish"
-    if (species.tags.includes("Shark") || species.name.toLowerCase().includes("shark")) {
-      speciesType = "shark"
-    } else if (species.tags.includes("Whale") || species.name.toLowerCase().includes("whale")) {
-      speciesType = "whale"
-    } else if (species.tags.includes("Turtle") || species.name.toLowerCase().includes("turtle")) {
-      speciesType = "turtle"
-    } else if (species.tags.includes("Ray") || species.name.toLowerCase().includes("ray")) {
-      speciesType = "ray"
-    } else if (
-      species.tags.includes("Dolphin") ||
-      species.name.toLowerCase().includes("dolphin") ||
-      species.name.toLowerCase().includes("orca")
-    ) {
-      speciesType = "dolphin"
-    }
-
-    return new Icon({
-      iconUrl: createColoredMarker(speciesType),
-      iconSize: [30, 30],
-      iconAnchor: [15, 15],
-      popupAnchor: [0, -15],
-    })
-  }
+  // Temporarily remove map functionality
+  // const getCustomIcon = () => { ... }
 
   if (loading || !species) {
     return (
@@ -117,7 +178,7 @@ export default function SpeciesDetailPage() {
         <div className="md:w-1/2">
           <div className="relative rounded-lg overflow-hidden h-[300px] md:h-[400px]">
             <Image
-              src={species.imageUrl || "/placeholder.svg"}
+              src={species.image_url || "/placeholder.svg"}
               alt={species.name}
               fill
               className="object-cover"
@@ -128,18 +189,18 @@ export default function SpeciesDetailPage() {
 
         <div className="md:w-1/2">
           <div className="flex flex-wrap gap-2 mb-2">
-            {species.tags.map((tag: string) => (
+            {(species.tags || []).map((tag: string) => (
               <Badge key={tag} variant="outline">
                 {tag}
               </Badge>
             ))}
           </div>
           <h1 className="text-3xl md:text-4xl font-bold text-cyan-800 mb-1">{species.name}</h1>
-          <p className="text-gray-500 italic mb-4">{species.scientificName}</p>
+          <p className="text-gray-500 italic mb-4">{species.scientific_name}</p>
 
           <div className="mb-4">
-            <Badge className={`${getStatusColor(species.conservationStatus)} text-white`}>
-              {species.conservationStatus}
+            <Badge className={`${getStatusColor(species.conservation_status)} text-white`}>
+              {species.conservation_status}
             </Badge>
           </div>
 
@@ -156,7 +217,7 @@ export default function SpeciesDetailPage() {
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500">Average Size</h3>
-              <p>{species.size}</p>
+              <p>{species.size_range}</p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500">Lifespan</h3>
@@ -168,9 +229,18 @@ export default function SpeciesDetailPage() {
             <Button asChild>
               <Link href={`/tracking?species=${species.id}`}>Track This Species</Link>
             </Button>
-            <Button variant="outline" className="gap-1">
-              <Bookmark size={16} />
-              Save
+            <Button 
+              variant="outline" 
+              className="gap-1" 
+              onClick={handleToggleFavorite}
+              disabled={favoritesLoading}
+            >
+              {isFavorited ? (
+                <BookmarkCheck size={16} className="text-cyan-600" />
+              ) : (
+                <Bookmark size={16} />
+              )}
+              {favoritesLoading ? 'Processing...' : (isFavorited ? 'Favorited' : 'Favorite')}
             </Button>
             <Button variant="outline" className="gap-1">
               <Share2 size={16} />
@@ -197,11 +267,11 @@ export default function SpeciesDetailPage() {
                 <div>
                   <h3 className="font-medium">Physical Characteristics</h3>
                   <p className="text-gray-600 mt-1">
-                    {species.name} can grow to {species.size}. They are known for their distinctive appearance and are
+                    {species.name} can grow to {species.size_range}. They are known for their distinctive appearance and are
                     easily recognizable by their{" "}
-                    {species.tags.includes("Shark")
+                    {(species.tags || []).includes("Shark")
                       ? "streamlined body and dorsal fin"
-                      : species.tags.includes("Whale")
+                      : (species.tags || []).includes("Whale")
                         ? "large size and blowhole"
                         : "unique features"}
                     .
@@ -212,7 +282,7 @@ export default function SpeciesDetailPage() {
                   <h3 className="font-medium">Feeding Habits</h3>
                   <p className="text-gray-600 mt-1">
                     Their diet consists primarily of {species.diet}.{" "}
-                    {species.tags.includes("Predator")
+                    {(species.tags || []).includes("Apex Predator")
                       ? "As apex predators, they play a crucial role in maintaining the health of marine ecosystems."
                       : "They are an important part of the marine food web."}
                   </p>
@@ -221,9 +291,9 @@ export default function SpeciesDetailPage() {
                 <div>
                   <h3 className="font-medium">Reproduction</h3>
                   <p className="text-gray-600 mt-1">
-                    {species.tags.includes("Mammal")
+                    {species.category === "Mammals"
                       ? `Like all mammals, ${species.name} give birth to live young. They typically have long gestation periods and care for their young for extended periods.`
-                      : species.tags.includes("Shark")
+                      : species.category === "Sharks"
                         ? `Depending on the species, sharks may lay eggs or give birth to live young. They typically have slow reproduction rates which makes them vulnerable to population decline.`
                         : `They have specific breeding patterns that are adapted to their marine environment.`}
                   </p>
@@ -232,37 +302,31 @@ export default function SpeciesDetailPage() {
                 <div>
                   <h3 className="font-medium">Lifespan</h3>
                   <p className="text-gray-600 mt-1">
-                    The average lifespan of {species.name} is {species.lifespan}. This relatively{" "}
-                    {species.lifespan.includes("years") && Number.parseInt(species.lifespan) > 50 ? "long" : "standard"}{" "}
-                    lifespan is influenced by factors such as habitat quality, food availability, and human impacts.
+                    The average lifespan of {species.name} is {species.lifespan}. This lifespan
+                    is influenced by factors such as habitat quality, food availability, and human impacts.
                   </p>
                 </div>
               </div>
             </div>
 
             <div>
-              <h2 className="text-xl font-bold mb-4">Tracking Data</h2>
+              <h2 className="text-xl font-bold mb-4">Population Data</h2>
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-medium">Migration Pattern</h3>
-                  <p className="text-gray-600 mt-1">{species.migrationPattern}</p>
+                  <h3 className="font-medium">Habitat</h3>
+                  <p className="text-gray-600 mt-1">{species.habitat}</p>
                 </div>
 
                 <div>
-                  <h3 className="font-medium">Depth Range</h3>
-                  <p className="text-gray-600 mt-1">{species.depthRange}</p>
+                  <h3 className="font-medium">Primary Diet</h3>
+                  <p className="text-gray-600 mt-1">{species.diet}</p>
                 </div>
 
                 <div>
-                  <h3 className="font-medium">Average Speed</h3>
-                  <p className="text-gray-600 mt-1">{species.averageSpeed}</p>
-                </div>
-
-                <div>
-                  <h3 className="font-medium">Tracking History</h3>
-                  <p className="text-gray-600 mt-1">
-                    First tagged in {species.firstTagged}. Currently tracking {species.taggedCount} individuals.
-                  </p>
+                  <h3 className="font-medium">Conservation Status</h3>
+                  <Badge className={`${getStatusColor(species.conservation_status)} text-white`}>
+                    {species.conservation_status}
+                  </Badge>
                 </div>
 
                 <div className="mt-6">
@@ -275,21 +339,21 @@ export default function SpeciesDetailPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm">Current population</span>
                     <Progress
-                      value={species.populationPercentage}
+                      value={species.population_percentage}
                       className={`h-2 ${
-                        species.populationTrend === "Increasing"
+                        species.population_trend === "Increasing"
                           ? "bg-green-100 [&>div]:bg-green-500"
-                          : species.populationTrend === "Stable"
+                          : species.population_trend === "Stable"
                             ? "bg-blue-100 [&>div]:bg-blue-500"
                             : "bg-red-100 [&>div]:bg-red-500"
                       }`}
                     />
-                    <span className={`text-sm ${getTrendColor(species.populationTrend)}`}>
-                      {species.populationPercentage}%
+                    <span className={`text-sm ${getTrendColor(species.population_trend)}`}>
+                      {species.population_percentage}%
                     </span>
                   </div>
-                  <p className={`text-sm mt-1 ${getTrendColor(species.populationTrend)}`}>
-                    {species.populationTrend} {species.populationTrend === "Decreasing" ? "⚠️" : ""}
+                  <p className={`text-sm mt-1 ${getTrendColor(species.population_trend)}`}>
+                    {species.population_trend} {species.population_trend === "Decreasing" ? "⚠️" : ""}
                   </p>
                 </div>
               </div>
@@ -303,27 +367,27 @@ export default function SpeciesDetailPage() {
               <h2 className="text-xl font-bold mb-4">Conservation Status</h2>
               <div className="mb-6">
                 <div
-                  className={`inline-block px-3 py-1 rounded-full text-white font-medium ${getStatusColor(species.conservationStatus)}`}
+                  className={`inline-block px-3 py-1 rounded-full text-white font-medium ${getStatusColor(species.conservation_status)}`}
                 >
-                  {species.conservationStatus}
+                  {species.conservation_status}
                 </div>
                 <p className="mt-4 text-gray-600">
-                  The {species.name} is currently classified as <strong>{species.conservationStatus}</strong> according
+                  The {species.name} is currently classified as <strong>{species.conservation_status}</strong> according
                   to the International Union for Conservation of Nature (IUCN) Red List of Threatened Species.
                 </p>
 
                 <div className="mt-6">
                   <h3 className="font-medium">What This Means</h3>
                   <p className="text-gray-600 mt-1">
-                    {species.conservationStatus.includes("Critically Endangered")
+                    {species.conservation_status.includes("Critically Endangered")
                       ? "This species is facing an extremely high risk of extinction in the wild."
-                      : species.conservationStatus.includes("Endangered")
+                      : species.conservation_status.includes("Endangered")
                         ? "This species is considered to be facing a very high risk of extinction in the wild."
-                        : species.conservationStatus.includes("Vulnerable")
+                        : species.conservation_status.includes("Vulnerable")
                           ? "This species is considered to be facing a high risk of extinction in the wild."
-                          : species.conservationStatus.includes("Near Threatened")
+                          : species.conservation_status.includes("Near Threatened")
                             ? "This species is close to qualifying for a threatened category in the near future."
-                            : species.conservationStatus.includes("Least Concern")
+                            : species.conservation_status.includes("Least Concern")
                               ? "This species has been evaluated and does not qualify for a threatened category. It is widespread and abundant."
                               : "The conservation status indicates the risk of extinction for this species in the wild."}
                   </p>
@@ -331,16 +395,16 @@ export default function SpeciesDetailPage() {
               </div>
 
               <h3 className="font-medium mt-6">Population Trend</h3>
-              <p className={`mt-1 ${getTrendColor(species.populationTrend)}`}>
-                <strong>{species.populationTrend}</strong> - Currently at {species.populationPercentage}% of historic
+              <p className={`mt-1 ${getTrendColor(species.population_trend)}`}>
+                <strong>{species.population_trend}</strong> - Currently at {species.population_percentage}% of historic
                 levels
               </p>
               <Progress
-                value={species.populationPercentage}
+                value={species.population_percentage}
                 className={`h-3 mt-2 ${
-                  species.populationTrend === "Increasing"
+                  species.population_trend === "Increasing"
                     ? "bg-green-100 [&>div]:bg-green-500"
-                    : species.populationTrend === "Stable"
+                    : species.population_trend === "Stable"
                       ? "bg-blue-100 [&>div]:bg-blue-500"
                       : "bg-red-100 [&>div]:bg-red-500"
                 }`}
@@ -353,7 +417,7 @@ export default function SpeciesDetailPage() {
               <div className="mb-6">
                 <h3 className="font-medium">Major Threats</h3>
                 <ul className="list-disc list-inside text-gray-600 mt-1 space-y-1">
-                  {species.threats.map((threat: string, index: number) => (
+                  {(species.threats || []).map((threat: string, index: number) => (
                     <li key={index}>{threat}</li>
                   ))}
                 </ul>
@@ -361,7 +425,7 @@ export default function SpeciesDetailPage() {
 
               <div>
                 <h3 className="font-medium">Conservation Efforts</h3>
-                <p className="text-gray-600 mt-1">{species.conservationEfforts}</p>
+                <p className="text-gray-600 mt-1">Various conservation initiatives are underway to protect this species and its habitat.</p>
 
                 <div className="mt-4 space-y-2">
                   <h4 className="text-sm font-medium">What's Being Done</h4>
@@ -410,18 +474,18 @@ export default function SpeciesDetailPage() {
               </div>
 
               <div className="mb-6">
-                <h3 className="font-medium">Geographic Range</h3>
-                <p className="text-gray-600 mt-1">{species.geographicRange}</p>
+                <h3 className="font-medium">Category</h3>
+                <p className="text-gray-600 mt-1">{species.category}</p>
               </div>
 
               <div className="mb-6">
-                <h3 className="font-medium">Depth Range</h3>
-                <p className="text-gray-600 mt-1">{species.depthRange}</p>
+                <h3 className="font-medium">Size Range</h3>
+                <p className="text-gray-600 mt-1">{species.size_range}</p>
               </div>
 
               <div>
-                <h3 className="font-medium">Migration Pattern</h3>
-                <p className="text-gray-600 mt-1">{species.migrationPattern}</p>
+                <h3 className="font-medium">Diet</h3>
+                <p className="text-gray-600 mt-1">{species.diet}</p>
               </div>
 
               <div className="mt-8">
@@ -437,38 +501,26 @@ export default function SpeciesDetailPage() {
             </div>
 
             <div>
-              <h2 className="text-xl font-bold mb-4">Range Map</h2>
+              <h2 className="text-xl font-bold mb-4">Species Information</h2>
 
-              <div className="h-[400px] rounded-lg overflow-hidden border">
-                <MapContainer
-                  center={[
-                    (species.startPosition[0] + species.endPosition[0]) / 2,
-                    (species.startPosition[1] + species.endPosition[1]) / 2,
-                  ]}
-                  zoom={3}
-                  style={{ height: "100%", width: "100%" }}
-                >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution="&copy; OpenStreetMap contributors"
-                  />
-                  <Marker position={species.startPosition} icon={getCustomIcon() || undefined}>
-                    <Popup>
-                      <div className="text-center">
-                        <p className="font-bold">{species.name}</p>
-                        <p className="text-xs">Observed location</p>
-                      </div>
-                    </Popup>
-                  </Marker>
-                  <Marker position={species.endPosition} icon={getCustomIcon() || undefined}>
-                    <Popup>
-                      <div className="text-center">
-                        <p className="font-bold">{species.name}</p>
-                        <p className="text-xs">Observed location</p>
-                      </div>
-                    </Popup>
-                  </Marker>
-                </MapContainer>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-medium">Tags</h3>
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {(species.tags || []).map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="font-medium">Population Trend</h3>
+                  <p className={`mt-1 ${getTrendColor(species.population_trend)}`}>
+                    {species.population_trend} ({species.population_percentage}% of historic levels)
+                  </p>
+                </div>
               </div>
 
               <div className="mt-6">

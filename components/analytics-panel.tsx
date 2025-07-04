@@ -32,7 +32,7 @@ const taggingHistoryData = [
   { year: "2020", count: 25 },
   { year: "2021", count: 34 },
   { year: "2022", count: 45 },
-  { year: "2023", count: 52 },
+  { year: "2025", count: 52 },
   { year: "2024", count: 58 },
 ]
 

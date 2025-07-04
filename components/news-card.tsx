@@ -12,6 +12,7 @@ interface NewsCardProps {
   excerpt: string
   imageUrl: string
   link?: string
+  onClick?: (e: React.MouseEvent) => void
 }
 
 export default function NewsCard({
@@ -21,6 +22,7 @@ export default function NewsCard({
   excerpt,
   imageUrl,
   link = "#",
+  onClick,
 }: NewsCardProps) {
   const safeImageUrl =
     imageUrl && (imageUrl.startsWith("/") || imageUrl.startsWith("http"))
@@ -47,7 +49,7 @@ export default function NewsCard({
       </CardContent>
       <CardFooter>
         <Button asChild variant="outline" className="w-full">
-          <Link href={link}>Read More</Link>
+          <a href={link} onClick={onClick}>Read More</a>
         </Button>
       </CardFooter>
     </Card>

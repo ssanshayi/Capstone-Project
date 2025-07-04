@@ -32,7 +32,11 @@ export default function LoginPage() {
     try {
       const success = await login(email, password)
       if (success) {
-        router.push("/profile")
+        // 等待一小段时间确保状态更新
+        setTimeout(() => {
+          router.push("/")
+          router.refresh()
+        }, 100)
       } else {
         setError("Invalid email or password")
       }
@@ -96,12 +100,6 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-4 text-center text-sm">
-            <p>
-              Demo accounts: <br />
-              <span className="text-gray-500">jane@example.com / password123</span>
-              <br />
-              <span className="text-gray-500">john@example.com / password123</span>
-            </p>
           </div>
         </CardContent>
         <CardFooter className="flex justify-center">

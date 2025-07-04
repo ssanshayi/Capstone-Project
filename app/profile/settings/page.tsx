@@ -116,10 +116,27 @@ export default function SettingsPage() {
                       fill
                       className="rounded-full object-cover border-4 border-white shadow"
                     />
+                    <div className="absolute inset-0 rounded-full bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                      <span className="text-white text-xs">Change</span>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          const reader = new FileReader()
+                          reader.onload = (e) => {
+                            const result = e.target?.result as string
+                            updateUser({ avatar: result })
+                          }
+                          reader.readAsDataURL(file)
+                        }
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer rounded-full"
+                    />
                   </div>
-                  <Button type="button" variant="outline" size="sm">
-                    Change Avatar
-                  </Button>
+                  <p className="text-sm text-gray-500">Click avatar to change</p>
                 </div>
 
                 <div className="space-y-4">

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Search, Filter, ChevronDown } from "lucide-react"
-import { marineSpeciesData } from "@/lib/data"
+import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -17,6 +17,26 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
+
+interface MarineSpecies {
+  id: string
+  name: string
+  scientific_name: string
+  category: string
+  conservation_status: string
+  description: string
+  habitat: string
+  diet: string
+  lifespan: string
+  size_range: string
+  population_trend: string
+  population_percentage: number
+  image_url: string
+  tags: string[]
+  threats: string[]
+  created_at: string
+}
 
 export default function SpeciesPage() {
   const [loading, setLoading] = useState(true)
@@ -29,38 +49,58 @@ export default function SpeciesPage() {
     tags: [],
   })
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [speciesData, setSpeciesData] = useState<MarineSpecies[]>([])
 
   // Extract all unique conservation statuses and tags
-  const allConservationStatuses = Array.from(new Set(marineSpeciesData.map((species) => species.conservationStatus)))
-  const allTags = Array.from(new Set(marineSpeciesData.flatMap((species) => species.tags)))
+  const allConservationStatuses = Array.from(new Set(speciesData.map((species) => species.conservation_status)))
+  const allTags = Array.from(new Set(speciesData.flatMap((species) => species.tags || [])))
 
   // Filter species based on search query and filters
-  const filteredSpecies = marineSpeciesData.filter((species) => {
+  const filteredSpecies = speciesData.filter((species) => {
     // Search filter
     const matchesSearch =
       searchQuery === "" ||
       species.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      species.scientificName.toLowerCase().includes(searchQuery.toLowerCase())
+      species.scientific_name.toLowerCase().includes(searchQuery.toLowerCase())
 
     // Conservation status filter
     const matchesConservationStatus =
       selectedFilters.conservationStatus.length === 0 ||
-      selectedFilters.conservationStatus.includes(species.conservationStatus)
+      selectedFilters.conservationStatus.includes(species.conservation_status)
 
     // Tags filter
     const matchesTags =
-      selectedFilters.tags.length === 0 || species.tags.some((tag) => selectedFilters.tags.includes(tag))
+      selectedFilters.tags.length === 0 || (species.tags || []).some((tag) => selectedFilters.tags.includes(tag))
 
     return matchesSearch && matchesConservationStatus && matchesTags
   })
 
-  // Simulate loading
+  // Fetch species data from Supabase
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false)
-    }, 800)
-    return () => clearTimeout(timer)
+    fetchSpeciesData()
   }, [])
+
+  const fetchSpeciesData = async () => {
+    try {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('marine_species')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching species:', error)
+        toast.error('Failed to load species data')
+      } else {
+        setSpeciesData(data || [])
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Failed to load species data')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Toggle a filter value
   const toggleFilter = (type: "conservationStatus" | "tags", value: string) => {
@@ -191,7 +231,7 @@ export default function SpeciesPage() {
       {/* View toggle */}
       <div className="mb-6 flex justify-between items-center">
         <p className="text-sm text-gray-500">
-          Showing {filteredSpecies.length} of {marineSpeciesData.length} species
+          Showing {filteredSpecies.length} of {speciesData.length} species
         </p>
         <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "grid" | "list")} className="w-auto">
           <TabsList className="grid w-[180px] grid-cols-2">
@@ -223,25 +263,25 @@ export default function SpeciesPage() {
                 <Card key={species.id} className="overflow-hidden flex flex-col h-full">
                   <div className="relative h-48">
                     <Image
-                      src={species.imageUrl || "/placeholder.svg"}
+                      src={species.image_url || "/placeholder.svg"}
                       alt={species.name}
                       fill
                       className="object-cover"
                     />
                     <div className="absolute top-2 right-2">
-                      <Badge className={`${getStatusColor(species.conservationStatus)} text-white`}>
-                        {species.conservationStatus}
+                      <Badge className={`${getStatusColor(species.conservation_status)} text-white`}>
+                        {species.conservation_status}
                       </Badge>
                     </div>
                   </div>
                   <CardHeader className="pb-2">
                     <CardTitle>{species.name}</CardTitle>
-                    <CardDescription>{species.scientificName}</CardDescription>
+                    <CardDescription>{species.scientific_name}</CardDescription>
                   </CardHeader>
                   <CardContent className="pb-2 flex-1">
                     <p className="text-sm text-gray-600 line-clamp-3 mb-3">{species.description}</p>
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {species.tags.map((tag) => (
+                      {(species.tags || []).map((tag) => (
                         <Badge key={tag} variant="outline" className="text-xs">
                           {tag}
                         </Badge>
@@ -254,14 +294,14 @@ export default function SpeciesPage() {
                         <span className="text-gray-500">Population: </span>
                         <span
                           className={
-                            species.populationTrend === "Increasing"
+                            species.population_trend === "Increasing"
                               ? "text-green-600"
-                              : species.populationTrend === "Stable"
+                              : species.population_trend === "Stable"
                                 ? "text-blue-600"
                                 : "text-red-600"
                           }
                         >
-                          {species.populationTrend}
+                          {species.population_trend}
                         </span>
                       </div>
                       <Button asChild size="sm">
@@ -281,7 +321,7 @@ export default function SpeciesPage() {
                   <div className="flex flex-col md:flex-row">
                     <div className="relative w-full md:w-48 h-48 md:h-auto">
                       <Image
-                        src={species.imageUrl || "/placeholder.svg"}
+                        src={species.image_url || "/placeholder.svg"}
                         alt={species.name}
                         fill
                         className="object-cover"
@@ -291,10 +331,10 @@ export default function SpeciesPage() {
                       <div className="flex flex-col md:flex-row md:items-start justify-between mb-2">
                         <div>
                           <h3 className="text-xl font-bold">{species.name}</h3>
-                          <p className="text-sm text-gray-500 italic">{species.scientificName}</p>
+                          <p className="text-sm text-gray-500 italic">{species.scientific_name}</p>
                         </div>
-                        <Badge className={`${getStatusColor(species.conservationStatus)} text-white mt-2 md:mt-0`}>
-                          {species.conservationStatus}
+                        <Badge className={`${getStatusColor(species.conservation_status)} text-white mt-2 md:mt-0`}>
+                          {species.conservation_status}
                         </Badge>
                       </div>
                       <p className="text-sm text-gray-600 mb-4">{species.description}</p>
@@ -313,11 +353,11 @@ export default function SpeciesPage() {
                         </div>
                         <div>
                           <span className="text-xs text-gray-500">Size:</span>
-                          <p className="text-sm">{species.size}</p>
+                          <p className="text-sm">{species.size_range}</p>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-1 mb-4">
-                        {species.tags.map((tag) => (
+                        {(species.tags || []).map((tag) => (
                           <Badge key={tag} variant="outline" className="text-xs">
                             {tag}
                           </Badge>
@@ -328,14 +368,14 @@ export default function SpeciesPage() {
                           <span className="text-gray-500">Population: </span>
                           <span
                             className={
-                              species.populationTrend === "Increasing"
+                              species.population_trend === "Increasing"
                                 ? "text-green-600"
-                                : species.populationTrend === "Stable"
+                                : species.population_trend === "Stable"
                                   ? "text-blue-600"
                                   : "text-red-600"
                             }
                           >
-                            {species.populationTrend} ({species.populationPercentage}% of historic levels)
+                            {species.population_trend} ({species.population_percentage}% of historic levels)
                           </span>
                         </div>
                         <Button asChild size="sm">
