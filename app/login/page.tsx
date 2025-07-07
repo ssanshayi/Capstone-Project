@@ -32,7 +32,7 @@ export default function LoginPage() {
     try {
       const success = await login(email, password)
       if (success) {
-        // 等待一小段时间确保状态更新
+
         setTimeout(() => {
           router.push("/")
           router.refresh()

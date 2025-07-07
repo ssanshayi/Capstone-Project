@@ -43,7 +43,7 @@ export default function Navbar() {
       <div className="container flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center">
-            <span className="text-2xl font-serif font-bold text-cyan-700">MarineTracker</span>
+          <span className="text-2xl font-serif font-bold text-cyan-700">Marine Eyes</span>
           </Link>
         </div>
 
@@ -56,11 +56,6 @@ export default function Navbar() {
           <Link href="/species" className={`text-sm font-medium transition-colors ${isActive("/species") ? "text-cyan-700" : "hover:text-cyan-700"} animated-underline`} onClick={handleProtectedNav("/species")}>Species</Link>
           <Link href="/resources" className={`text-sm font-medium transition-colors ${isActive("/resources") ? "text-cyan-700" : "hover:text-cyan-700"} animated-underline`} onClick={handleProtectedNav("/resources")}>Resources</Link>
           <Link href="/#ai-detection" className="text-sm font-medium hover:text-cyan-700 transition-colors animated-underline" onClick={handleProtectedNav("/#ai-detection")}>AI Detection</Link>
-          {user?.role === "admin" && (
-            <Link href="/supabase-diagnostic" className="text-sm font-medium hover:text-cyan-700 transition-colors animated-underline">
-              Database
-            </Link>
-          )}
           <Link href="#" className="text-sm font-medium hover:text-cyan-700 transition-colors animated-underline">
             About
           </Link>
@@ -143,11 +138,6 @@ export default function Navbar() {
               <Link href="/species" className={`text-lg font-medium transition-colors ${isActive("/species") ? "text-cyan-700" : "hover:text-cyan-700"}`} onClick={(e) => { handleProtectedNav("/species")(e); if (isAuthenticated) setIsMenuOpen(false) }}>Species</Link>
               <Link href="/resources" className={`text-lg font-medium transition-colors ${isActive("/resources") ? "text-cyan-700" : "hover:text-cyan-700"}`} onClick={(e) => { handleProtectedNav("/resources")(e); if (isAuthenticated) setIsMenuOpen(false) }}>Resources</Link>
               <Link href="/#ai-detection" className="text-lg font-medium hover:text-cyan-700 transition-colors" onClick={(e) => { handleProtectedNav("/#ai-detection")(e); if (isAuthenticated) setIsMenuOpen(false) }}>AI Detection</Link>
-              {user?.role === "admin" && (
-                <Link href="/supabase-diagnostic" className="text-lg font-medium hover:text-cyan-700 transition-colors" onClick={() => setIsMenuOpen(false)}>
-                  Database
-                </Link>
-              )}
               <Link href="#" className="text-lg font-medium hover:text-cyan-700 transition-colors" onClick={() => setIsMenuOpen(false)}>
                 About
               </Link>

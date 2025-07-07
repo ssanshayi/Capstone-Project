@@ -1,97 +1,107 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2 } from "lucide-react"
+import { Users, Fish, BarChart3, FileText, Database, Settings } from "lucide-react"
 
 export default function AdminPage() {
-  const { user, isLoading, isAuthenticated } = useAuth()
   const router = useRouter()
-  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null)
 
-  useEffect(() => {
-    // If user loading is complete but not authenticated, redirect to login page
-    if (!isLoading && !isAuthenticated) {
-      router.push("/login")
-      return
-    }
-
-    // If user is authenticated, check if they are an admin
-    if (!isLoading && isAuthenticated && user) {
-      
-      // Temporary solution: any logged-in user can access admin pages
-      setIsAuthorized(true)
-      
-      // Official solution (uncomment to enable)
-      // setIsAuthorized(user.role === "admin")
-    }
-  }, [isLoading, isAuthenticated, user, router])
-
-  // Loading state
-  if (isLoading || isAuthorized === null) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">Verifying admin permissions...</span>
-      </div>
-    )
-  }
-
-  // Unauthorized state
-  if (!isAuthorized) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center text-red-500">Access Denied</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center">
-            <p className="mb-4 text-center">You do not have permission to access the admin panel.</p>
-            <Button onClick={() => router.push("/")}>Back to Home</Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  // Admin page content
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+        <p className="text-gray-600 mt-2">Manage your marine conservation platform</p>
+      </div>
+      
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
+        <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle>User Management</CardTitle>
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-600" />
+              <CardTitle>User Management</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
-            <p>Manage system users and permissions</p>
-            <Button className="mt-4" onClick={() => router.push("/admin/users")}>
+            <p className="text-gray-600 mb-4">Manage system users, roles, and permissions</p>
+            <Button className="w-full" onClick={() => router.push("/admin/users")}>
               View Users
             </Button>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle>Species Management</CardTitle>
+            <div className="flex items-center gap-2">
+              <Fish className="h-5 w-5 text-green-600" />
+              <CardTitle>Species Management</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
-            <p>Manage marine species data</p>
-            <Button className="mt-4" onClick={() => router.push("/admin/species")}>
+            <p className="text-gray-600 mb-4">Manage marine species data and information</p>
+            <Button className="w-full" onClick={() => router.push("/admin/species")}>
               View Species
             </Button>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle>System Analytics</CardTitle>
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-purple-600" />
+              <CardTitle>Resource Management</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
-            <p>View system usage statistics and analytics</p>
-            <Button className="mt-4" onClick={() => router.push("/admin/analytics")}>
+            <p className="text-gray-600 mb-4">Manage educational resources and materials</p>
+            <Button className="w-full" onClick={() => router.push("/admin/resources")}>
+              View Resources
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-orange-600" />
+              <CardTitle>System Analytics</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 mb-4">View system usage statistics and analytics</p>
+            <Button className="w-full" onClick={() => router.push("/admin/analytics")}>
               View Analytics
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-red-600" />
+              <CardTitle>Database Diagnostic</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 mb-4">Monitor database health and performance</p>
+            <Button className="w-full" onClick={() => router.push("/admin/database-diagnostic")}>
+              Run Diagnostics
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Settings className="h-5 w-5 text-gray-600" />
+              <CardTitle>System Settings</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 mb-4">Configure system settings and preferences</p>
+            <Button className="w-full" onClick={() => router.push("/admin/settings")}>
+              View Settings
             </Button>
           </CardContent>
         </Card>

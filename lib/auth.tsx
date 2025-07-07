@@ -41,23 +41,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        // 直接使用Supabase Auth信息，避免查询profiles表
         const user = session.user
         
+        // Try to fetch user profile from profiles table, but don't fail if it doesn't exist
+        let profile = null
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('role, full_name, avatar_url')
+            .eq('id', user.id)
+            .maybeSingle() // Use maybeSingle instead of single to avoid errors
+
+          if (profileError) {
+            console.log('Profile fetch error:', profileError.message)
+          } else {
+            profile = profileData
+          }
+        } catch (profileFetchError) {
+          console.log('Profile fetch failed:', profileFetchError)
+        }
+
         if (user && mounted) {
+          // If no profile exists, create one
+          if (!profile && user.email) {
+            try {
+              const { data: newProfile, error: createError } = await supabase
+                .from('profiles')
+                .insert([{
+                  id: user.id,
+                  email: user.email,
+                  full_name: (user as any).user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+                  role: 'user', // Default to user role
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }])
+                .select()
+                .single()
+
+              if (!createError && newProfile) {
+                profile = newProfile
+                console.log('Created new profile for user:', newProfile)
+              }
+            } catch (createProfileError) {
+              console.log('Failed to create profile:', createProfileError)
+            }
+          }
+
           setUser({
             id: user.id,
-            name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+            name: profile?.full_name || (user as any).user_metadata?.full_name || (user as any).user_metadata?.name || user.email?.split('@')[0] || 'User',
             email: user.email,
-            avatar: user.user_metadata?.avatar_url,
-            role: user.user_metadata?.role || 'user', // 默认角色
-            joinDate: user.created_at,
+            avatar: profile?.avatar_url || (user as any).user_metadata?.avatar_url,
+            role: profile?.role || (user as any).user_metadata?.role || 'user', // Use profile role first, fallback to metadata
+            joinDate: (user as any).created_at,
             favoriteSpecies: []
           })
         }
       } catch (error) {
         console.error('Error loading user profile:', error)
-        if (mounted) setUser(null)
+        // Don't set user to null on error, just use auth data
+        if (user && mounted) {
+          setUser({
+            id: user.id,
+            name: (user as any).user_metadata?.full_name || (user as any).user_metadata?.name || user.email?.split('@')[0] || 'User',
+            email: user.email,
+            avatar: (user as any).user_metadata?.avatar_url,
+            role: (user as any).user_metadata?.role || 'user',
+            joinDate: (user as any).created_at,
+            favoriteSpecies: []
+          })
+        }
       }
     }
 
@@ -110,7 +163,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-
   const register = async (name: string, email: string, password: string): Promise<string | null> => {
     try {
       setIsLoading(true)
@@ -149,17 +201,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(true)
       if (!user) return false
       
-      // 更新Supabase Auth用户metadata，避免查询profiles表
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          full_name: userData.name,
-          avatar_url: userData.avatar,
-          role: userData.role,
-          favorite_species: userData.favoriteSpecies
-        }
-      })
+      // Update both auth metadata and profiles table
+      const updatePromises = []
       
-      if (error) throw error
+      // Update auth metadata
+      if (userData.name || userData.avatar || userData.role || userData.favoriteSpecies) {
+        updatePromises.push(
+          supabase.auth.updateUser({
+            data: {
+              full_name: userData.name,
+              avatar_url: userData.avatar,
+              role: userData.role,
+              favorite_species: userData.favoriteSpecies
+            }
+          })
+        )
+      }
+      
+      // Update profiles table
+      if (userData.name || userData.avatar || userData.role) {
+        const profileUpdates: any = {}
+        if (userData.name) profileUpdates.full_name = userData.name
+        if (userData.avatar) profileUpdates.avatar_url = userData.avatar
+        if (userData.role) profileUpdates.role = userData.role
+        
+        updatePromises.push(
+          supabase
+            .from('profiles')
+            .update(profileUpdates)
+            .eq('id', user.id)
+        )
+      }
+      
+      // Wait for all updates to complete
+      const results = await Promise.all(updatePromises)
+      
+      // Check for errors
+      for (const result of results) {
+        if (result.error) throw result.error
+      }
+      
       setUser(prev => prev ? { ...prev, ...userData } : null)
       return true
     } catch (error) {

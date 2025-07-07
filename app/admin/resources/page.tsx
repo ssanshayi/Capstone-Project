@@ -1,291 +1,564 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
-import { supabase } from "@/lib/supabase"
-import { useAuth } from "@/lib/auth"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { toast } from "@/components/ui/use-toast"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
+import { Search, Edit, Trash2, Plus, FileText, Calendar, User, Star } from "lucide-react"
+import { toast } from "sonner"
+import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/lib/auth"
 
-export default function AdminResourceManagement() {
-  const { user, isAuthenticated } = useAuth()
-  const [resources, setResources] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editData, setEditData] = useState<any>({})
-  const [creating, setCreating] = useState(false)
-  const [newResource, setNewResource] = useState<any>({
-    title: "",
-    category: "Research",
-    excerpt: "",
-    author: "",
-    image_url: "",
-    read_time: "",
+interface Resource {
+  id: string
+  title: string
+  category: string
+  excerpt: string
+  author: string
+  image_url?: string
+  read_time: string
+  featured: boolean
+  date: string
+  author_avatar?: string
+  created_at: string
+  updated_at: string
+}
+
+export default function ResourcesPage() {
+  const { user } = useAuth()
+  const [resources, setResources] = useState<Resource[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState("all")
+  const [featuredFilter, setFeaturedFilter] = useState("all")
+  const [editingResource, setEditingResource] = useState<Resource | null>(null)
+  const [isAddingNew, setIsAddingNew] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [newResource, setNewResource] = useState<Omit<Resource, 'id' | 'created_at' | 'updated_at'>>({
+    title: '',
+    category: 'Research',
+    excerpt: '',
+    author: '',
+    image_url: '',
+    read_time: '',
     featured: false,
+    date: '',
+    author_avatar: ''
   })
-  const [search, setSearch] = useState("")
-  const [page, setPage] = useState(1)
-  const pageSize = 10
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
+
+  const categoryOptions = [
+    { value: 'Research', label: 'Research', color: 'bg-blue-100 text-blue-800' },
+    { value: 'Education', label: 'Education', color: 'bg-green-100 text-green-800' },
+    { value: 'Conservation', label: 'Conservation', color: 'bg-orange-100 text-orange-800' },
+    { value: 'News', label: 'News', color: 'bg-purple-100 text-purple-800' },
+    { value: 'Guide', label: 'Guide', color: 'bg-red-100 text-red-800' }
+  ]
+
+  const featuredOptions = [
+    { value: 'featured', label: 'Featured', color: 'bg-yellow-100 text-yellow-800' },
+    { value: 'regular', label: 'Regular', color: 'bg-gray-100 text-gray-800' }
+  ]
 
   useEffect(() => {
     fetchResources()
   }, [])
 
   const fetchResources = async () => {
-    setLoading(true)
-    const { data, error } = await supabase.from("resources").select("*").order("created_at", { ascending: false })
-    if (error) toast({ title: "Error", description: error.message })
-    setResources(data || [])
-    setLoading(false)
-  }
-
-  const handleEdit = (resource: any) => {
-    setEditingId(resource.id)
-    setEditData({ ...resource })
-    setEditDialogOpen(true)
-  }
-
-  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setEditData({ ...editData, [e.target.name]: e.target.value })
-  }
-
-  // Image upload handler
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEdit = false) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${Date.now()}.${fileExt}`
-    const { data, error } = await supabase.storage.from('resources').upload(fileName, file)
-    if (error) {
-      toast({ title: "Image upload failed", description: error.message })
-      return
-    }
-    const url = supabase.storage.from('resources').getPublicUrl(fileName).data.publicUrl
-    if (isEdit) {
-      setEditData({ ...editData, image_url: url })
-    } else {
-      setNewResource({ ...newResource, image_url: url })
-    }
-  }
-
-  // Validation
-  const validateResource = (resource: any) => {
-    if (!resource.title || !resource.author || !resource.category) return false
-    if (resource.image_url && !resource.image_url.startsWith('http')) return false
-    return true
-  }
-
-  const handleEditSave = async () => {
-    if (!validateResource(editData)) {
-      toast({ title: "Validation failed", description: "Title, author, and category are required. Image URL must be valid." })
-      return
-    }
     try {
-      // Only send allowed fields
-      const allowedFields = [
-        "title", "category", "author", "image_url", "read_time", "excerpt", "date", "featured"
-      ];
-      const updatePayload: any = {};
-      allowedFields.forEach(field => {
-        if (editData[field] !== undefined) updatePayload[field] = editData[field];
-      });
-
-      const { error } = await supabase
-        .from("resources")
-        .update(updatePayload)
-        .eq("id", editingId);
+      const { data, error } = await supabase
+        .from('resources')
+        .select('*')
+        .order('created_at', { ascending: false })
 
       if (error) {
-        toast({ title: "Update failed", description: error.message });
-        console.error("Supabase update error:", error);
-      } else {
-        toast({ title: "Resource updated" });
-        setEditingId(null);
-        setEditDialogOpen(false);
-        fetchResources();
+        console.error('Supabase fetch error:', error.message || error)
+        toast.error('Failed to fetch resources list')
+        return
       }
-    } catch (err) {
-      toast({ title: "Unexpected error", description: String(err) });
-      console.error("Unexpected error:", err);
-    }
-  };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this resource?")) return
-    const { error } = await supabase.from("resources").delete().eq("id", id)
-    if (error) {
-      toast({ title: "Delete failed", description: error.message })
-    } else {
-      toast({ title: "Resource deleted" })
-      fetchResources()
+      setResources(data || [])
+    } catch (err: any) {
+      console.error('Unexpected error:', err.message || err)
+      toast.error('Unexpected error fetching resources list')
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleCreate = async () => {
-    if (!validateResource(newResource)) {
-      toast({ title: "Validation failed", description: "Title, author, and category are required. Image URL must be valid." })
-      return
-    }
-    const { error } = await supabase.from("resources").insert([newResource])
-    if (error) {
-      toast({ title: "Create failed", description: error.message })
-    } else {
-      toast({ title: "Resource created" })
-      setCreating(false)
+  const saveResource = async (resourceData: Omit<Resource, 'id' | 'created_at' | 'updated_at'> | Resource) => {
+    try {
+      console.log('saveResource called with:', resourceData)
+      console.log('isAddingNew:', isAddingNew)
+      console.log('editingResource:', editingResource)
+      console.log('Current user:', user)
+      console.log('User role:', user?.role)
+      
+      if (isAddingNew) {
+        console.log('Adding new resource...')
+        const { data, error } = await supabase
+          .from('resources')
+          .insert([resourceData])
+          .select()
+
+        if (error) {
+          console.error('Error adding resource:', error)
+          toast.error('Failed to add resource')
+          return
+        }
+        console.log('Resource added successfully:', data)
+        toast.success('Resource added successfully')
+      } else if (editingResource) {
+        console.log('Updating existing resource...')
+        // Extract only the fields we want to update, excluding id, created_at, updated_at
+        const { id, created_at, updated_at, ...updateData } = resourceData as Resource
+        
+        console.log('Update data:', updateData)
+        console.log('Resource ID to update:', editingResource.id)
+        
+        const { data, error } = await supabase
+          .from('resources')
+          .update({
+            ...updateData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingResource.id)
+          .select()
+
+        if (error) {
+          console.error('Error updating resource:', error)
+          console.error('Error details:', error.message, error.details, error.hint)
+          toast.error('Failed to update resource')
+          return
+        }
+        console.log('Resource updated successfully:', data)
+        toast.success('Resource updated successfully')
+      }
+
+      await fetchResources()
+      setIsAddingNew(false)
+      setEditingResource(null)
       setNewResource({
-        title: "",
-        category: "Research",
-        excerpt: "",
-        author: "",
-        image_url: "",
-        read_time: "",
+        title: '',
+        category: 'Research',
+        excerpt: '',
+        author: '',
+        image_url: '',
+        read_time: '',
         featured: false,
+        date: '',
+        author_avatar: ''
       })
-      fetchResources()
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Operation failed')
     }
   }
 
-  // Filtered and paginated resources
-  const filteredResources = resources.filter(r =>
-    r.title.toLowerCase().includes(search.toLowerCase()) ||
-    r.author.toLowerCase().includes(search.toLowerCase()) ||
-    r.category.toLowerCase().includes(search.toLowerCase())
-  )
-  const totalPages = Math.ceil(filteredResources.length / pageSize)
-  const paginatedResources = filteredResources.slice((page-1)*pageSize, page*pageSize)
+  const deleteResource = async (resourceId: string) => {
+    try {
+      const { error } = await supabase
+        .from('resources')
+        .delete()
+        .eq('id', resourceId)
+
+      if (error) {
+        console.error('Error deleting resource:', error)
+        toast.error('Failed to delete resource')
+        return
+      }
+
+      toast.success('Resource deleted successfully')
+      await fetchResources()
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Delete failed')
+    }
+  }
+
+  const getCategoryBadge = (category: string) => {
+    const categoryOption = categoryOptions.find(c => c.value === category)
+    return (
+      <Badge className={categoryOption?.color}>
+        {categoryOption?.label || category}
+      </Badge>
+    )
+  }
+
+  const getFeaturedBadge = (featured: boolean) => {
+    const featuredOption = featuredOptions.find(f => f.value === (featured ? 'featured' : 'regular'))
+    return (
+      <Badge className={featuredOption?.color}>
+        {featuredOption?.label || (featured ? 'Featured' : 'Regular')}
+      </Badge>
+    )
+  }
+
+  const filteredResources = resources.filter(resource => {
+    const matchesSearch = (resource.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (resource.author || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (resource.excerpt || '').toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesCategory = categoryFilter === "all" || resource.category === categoryFilter
+    const matchesFeatured = featuredFilter === "all" || 
+                           (featuredFilter === "featured" && resource.featured) ||
+                           (featuredFilter === "regular" && !resource.featured)
+    return matchesSearch && matchesCategory && matchesFeatured
+  })
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center h-64">Loading...</div>
+  }
 
   return (
-    <div className="max-w-4xl mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-6">Resource Management</h1>
-      <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
-        <Button onClick={() => setCreating((c) => !c)}>
-          {creating ? "Cancel" : "Add New Resource"}
-        </Button>
-        <Input
-          placeholder="Search by title, author, or category..."
-          value={search}
-          onChange={e => { setSearch(e.target.value); setPage(1) }}
-          className="max-w-xs"
-        />
-      </div>
-      {creating && (
-        <div className="mb-8 p-4 border rounded bg-gray-50">
-          <h2 className="font-semibold mb-2">New Resource</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input name="title" placeholder="Title*" value={newResource.title} onChange={e => setNewResource({ ...newResource, title: e.target.value })} required />
-            <Input name="category" placeholder="Category*" value={newResource.category} onChange={e => setNewResource({ ...newResource, category: e.target.value })} required />
-            <Input name="author" placeholder="Author*" value={newResource.author} onChange={e => setNewResource({ ...newResource, author: e.target.value })} required />
-            <Input name="image_url" placeholder="Image URL" value={newResource.image_url} onChange={e => setNewResource({ ...newResource, image_url: e.target.value })} />
-            <Input name="read_time" placeholder="Read Time" value={newResource.read_time} onChange={e => setNewResource({ ...newResource, read_time: e.target.value })} />
-            <Input name="excerpt" placeholder="Excerpt" value={newResource.excerpt} onChange={e => setNewResource({ ...newResource, excerpt: e.target.value })} />
-            <Input name="date" placeholder="Date (YYYY-MM-DD)" value={newResource.date || ""} onChange={e => setNewResource({ ...newResource, date: e.target.value })} />
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={!!newResource.featured} onChange={e => setNewResource({ ...newResource, featured: e.target.checked })} />
-              Featured
-            </label>
-            <div>
-              <input type="file" accept="image/*" ref={fileInputRef} onChange={e => handleImageUpload(e, false)} />
-              {newResource.image_url && <img src={newResource.image_url} alt="Preview" className="mt-2 h-16 rounded" />}
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Resource Management</h1>
+          <p className="text-gray-600 mt-2">Manage educational resources and materials</p>
+        </div>
+        <Dialog open={isAddingNew} onOpenChange={setIsAddingNew}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Resource
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add New Resource</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <Label htmlFor="title">Title</Label>
+                <Input
+                  id="title"
+                  value={newResource.title}
+                  onChange={(e) => setNewResource(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Enter resource title"
+                />
+              </div>
+              <div>
+                <Label htmlFor="author">Author</Label>
+                <Input
+                  id="author"
+                  value={newResource.author}
+                  onChange={(e) => setNewResource(prev => ({ ...prev, author: e.target.value }))}
+                  placeholder="Enter author name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="category">Category</Label>
+                <Select value={newResource.category} onValueChange={(value) => setNewResource(prev => ({ ...prev, category: value }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoryOptions.map(category => (
+                      <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="read_time">Read Time</Label>
+                <Input
+                  id="read_time"
+                  value={newResource.read_time}
+                  onChange={(e) => setNewResource(prev => ({ ...prev, read_time: e.target.value }))}
+                  placeholder="e.g., 5 min read"
+                />
+              </div>
+              <div>
+                <Label htmlFor="date">Date</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={newResource.date}
+                  onChange={(e) => setNewResource(prev => ({ ...prev, date: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="image_url">Image URL</Label>
+                <Input
+                  id="image_url"
+                  value={newResource.image_url}
+                  onChange={(e) => setNewResource(prev => ({ ...prev, image_url: e.target.value }))}
+                  placeholder="Enter image URL"
+                />
+              </div>
+              <div>
+                <Label htmlFor="author_avatar">Author Avatar URL</Label>
+                <Input
+                  id="author_avatar"
+                  value={newResource.author_avatar}
+                  onChange={(e) => setNewResource(prev => ({ ...prev, author_avatar: e.target.value }))}
+                  placeholder="Enter author avatar URL"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="excerpt">Excerpt</Label>
+                <Textarea
+                  id="excerpt"
+                  value={newResource.excerpt}
+                  onChange={(e) => setNewResource(prev => ({ ...prev, excerpt: e.target.value }))}
+                  placeholder="Enter resource excerpt..."
+                  rows={3}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="featured"
+                    checked={newResource.featured}
+                    onCheckedChange={(checked) => setNewResource(prev => ({ ...prev, featured: checked }))}
+                  />
+                  <Label htmlFor="featured">Featured Resource</Label>
+                </div>
+              </div>
             </div>
-          </div>
-          <Button onClick={handleCreate} className="mt-4">Create</Button>
-        </div>
-      )}
-      <div className="overflow-x-auto">
-        <table className="min-w-full border">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="p-2 border">Title</th>
-              <th className="p-2 border">Category</th>
-              <th className="p-2 border">Author</th>
-              <th className="p-2 border">Date</th>
-              <th className="p-2 border">Excerpt</th>
-              <th className="p-2 border">Featured</th>
-              <th className="p-2 border">Image</th>
-              <th className="p-2 border">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={8} className="text-center p-4">Loading...</td></tr>
-            ) : paginatedResources.length === 0 ? (
-              <tr><td colSpan={8} className="text-center p-4">No resources found.</td></tr>
-            ) : paginatedResources.map((resource) => (
-              <tr key={resource.id} className="border-b">
-                <td className="p-2 border">
-                  <span>{resource.title}</span>
-                </td>
-                <td className="p-2 border">
-                  <Badge>{resource.category}</Badge>
-                </td>
-                <td className="p-2 border">
-                  <span>{resource.author}</span>
-                </td>
-                <td className="p-2 border">
-                  <span>{resource.date}</span>
-                </td>
-                <td className="p-2 border">
-                  <span className="line-clamp-2 max-w-xs">{resource.excerpt}</span>
-                </td>
-                <td className="p-2 border text-center">
-                  {resource.featured ? <span className="text-green-600 font-bold">Yes</span> : <span className="text-gray-400">No</span>}
-                </td>
-                <td className="p-2 border">
-                  {resource.image_url && <img src={resource.image_url} alt="Preview" className="h-10 rounded" />}
-                </td>
-                <td className="p-2 border space-x-2">
-                  <>
-                    <Dialog open={editingId === resource.id && editDialogOpen} onOpenChange={open => { setEditDialogOpen(open); if (!open) setEditingId(null) }}>
-                      <DialogTrigger asChild>
-                        <Button size="sm" variant="outline" onClick={() => handleEdit(resource)}>Edit</Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Edit Resource</DialogTitle>
-                        </DialogHeader>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <Input name="title" placeholder="Title*" value={editData.title || ""} onChange={handleEditChange} required />
-                          <Input name="category" placeholder="Category*" value={editData.category || ""} onChange={handleEditChange} required />
-                          <Input name="author" placeholder="Author*" value={editData.author || ""} onChange={handleEditChange} required />
-                          <Input name="image_url" placeholder="Image URL" value={editData.image_url || ""} onChange={handleEditChange} />
-                          <Input name="read_time" placeholder="Read Time" value={editData.read_time || ""} onChange={handleEditChange} />
-                          <Input name="excerpt" placeholder="Excerpt" value={editData.excerpt || ""} onChange={handleEditChange} />
-                          <Input name="date" placeholder="Date (YYYY-MM-DD)" value={editData.date || ""} onChange={handleEditChange} />
-                          <label className="flex items-center gap-2">
-                            <input type="checkbox" checked={!!editData.featured} onChange={e => setEditData({ ...editData, featured: e.target.checked })} />
-                            Featured
-                          </label>
-                          <div>
-                            <input type="file" accept="image/*" onChange={e => handleImageUpload(e, true)} />
-                            {editData.image_url && <img src={editData.image_url} alt="Preview" className="mt-2 h-16 rounded" />}
-                          </div>
-                        </div>
-                        <div className="flex gap-2 mt-4">
-                          <Button onClick={handleEditSave}>Save</Button>
-                          <Button variant="outline" onClick={() => { setEditingId(null); setEditDialogOpen(false) }}>Cancel</Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                    <Button size="sm" variant="destructive" onClick={() => handleDelete(resource.id)}>Delete</Button>
-                  </>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={() => setIsAddingNew(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => saveResource(newResource)}>
+                Add Resource
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Resource Dialog */}
+        <Dialog open={!!editingResource} onOpenChange={() => setEditingResource(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Resource</DialogTitle>
+            </DialogHeader>
+            {editingResource && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <Label htmlFor="edit-title">Title</Label>
+                  <Input
+                    id="edit-title"
+                    value={editingResource.title || ''}
+                    onChange={(e) => setEditingResource(prev => prev ? { ...prev, title: e.target.value } : null)}
+                    placeholder="Enter resource title"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-author">Author</Label>
+                  <Input
+                    id="edit-author"
+                    value={editingResource.author || ''}
+                    onChange={(e) => setEditingResource(prev => prev ? { ...prev, author: e.target.value } : null)}
+                    placeholder="Enter author name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-category">Category</Label>
+                  <Select 
+                    value={editingResource.category} 
+                    onValueChange={(value) => setEditingResource(prev => prev ? { ...prev, category: value } : null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categoryOptions.map(category => (
+                        <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-read-time">Read Time</Label>
+                  <Input
+                    id="edit-read-time"
+                    value={editingResource.read_time || ''}
+                    onChange={(e) => setEditingResource(prev => prev ? { ...prev, read_time: e.target.value } : null)}
+                    placeholder="e.g., 5 min read"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-date">Date</Label>
+                  <Input
+                    id="edit-date"
+                    type="date"
+                    value={editingResource.date || ''}
+                    onChange={(e) => setEditingResource(prev => prev ? { ...prev, date: e.target.value } : null)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-image-url">Image URL</Label>
+                  <Input
+                    id="edit-image-url"
+                    value={editingResource.image_url || ''}
+                    onChange={(e) => setEditingResource(prev => prev ? { ...prev, image_url: e.target.value } : null)}
+                    placeholder="Enter image URL"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-author-avatar">Author Avatar URL</Label>
+                  <Input
+                    id="edit-author-avatar"
+                    value={editingResource.author_avatar || ''}
+                    onChange={(e) => setEditingResource(prev => prev ? { ...prev, author_avatar: e.target.value } : null)}
+                    placeholder="Enter author avatar URL"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="edit-excerpt">Excerpt</Label>
+                  <Textarea
+                    id="edit-excerpt"
+                    value={editingResource.excerpt || ''}
+                    onChange={(e) => setEditingResource(prev => prev ? { ...prev, excerpt: e.target.value } : null)}
+                    placeholder="Enter resource excerpt..."
+                    rows={3}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="edit-featured"
+                      checked={editingResource.featured}
+                      onCheckedChange={(checked) => setEditingResource(prev => prev ? { ...prev, featured: checked } : null)}
+                    />
+                    <Label htmlFor="edit-featured">Featured Resource</Label>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={() => setEditingResource(null)}>
+                Cancel
+              </Button>
+              <Button onClick={() => editingResource && saveResource(editingResource)}>
+                Save Changes
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2 mt-6">
-          <Button size="sm" disabled={page === 1} onClick={() => setPage(page-1)}>Previous</Button>
-          <span className="px-2">Page {page} of {totalPages}</span>
-          <Button size="sm" disabled={page === totalPages} onClick={() => setPage(page+1)}>Next</Button>
-        </div>
-      )}
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search by title, author, or excerpt..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categoryOptions.map(category => (
+                  <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={featuredFilter} onValueChange={setFeaturedFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Resources</SelectItem>
+                {featuredOptions.map(featured => (
+                  <SelectItem key={featured.value} value={featured.value}>{featured.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Resource</TableHead>
+                <TableHead>Author</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredResources.map((resource) => (
+                <TableRow key={resource.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={resource.image_url} />
+                        <AvatarFallback>
+                          <FileText className="h-5 w-5" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium">{resource.title}</div>
+                        <div className="text-sm text-gray-500">{resource.read_time} read</div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-gray-400" />
+                      {resource.author}
+                    </div>
+                  </TableCell>
+                  <TableCell>{getCategoryBadge(resource.category)}</TableCell>
+                  <TableCell>{getFeaturedBadge(resource.featured)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-gray-400" />
+                      {resource.date ? new Date(resource.date).toLocaleDateString('zh-CN') : 'No date'}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => setEditingResource(resource)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="destructive"
+                        onClick={() => {
+                          if (confirm('Are you sure you want to delete this resource?')) {
+                            deleteResource(resource.id)
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredResources.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-gray-500">
+                    No resources found or you're not authorized to view the data.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   )
 } 

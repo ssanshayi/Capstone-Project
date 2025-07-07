@@ -1,11 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 
-// 直接使用Supabase
+// Ensure your environment variables are loaded
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('缺少Supabase环境变量，请检查.env.local文件')
+  console.error("❌ Missing Supabase environment variables!")
+  console.error("➡️  Ensure you have a .env.local file with:")
+  console.error("   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url")
+  console.error("   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key")
+  console.error("👉  Get these from: https://supabase.com/dashboard > Project > Settings > API")
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey) 
+export const supabase = createClient(
+  supabaseUrl || 'https://dummy.supabase.co',
+  supabaseAnonKey || 'dummy-key'
+)

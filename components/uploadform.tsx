@@ -6,11 +6,13 @@ import { useRouter } from "next/navigation"
 
 export default function UploadForm() {
   const [file, setFile] = useState<File | null>(null)
-  const [result, setResult] = useState<string[] | null>(null)
+  const [result, setResult] = useState<{
+    detections: string[]
+    detections_per_second?: { [key: string]: string[] }
+    frames_written?: number
+  } | null>(null)
   const [mediaUrl, setMediaUrl] = useState<string | null>(null)
   const [mediaType, setMediaType] = useState<"image" | "video" | null>(null)
-  const [frameCount, setFrameCount] = useState<number | null>(null)
-  const [perSecond, setPerSecond] = useState<Record<string, string[]> | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -47,8 +49,6 @@ export default function UploadForm() {
     setError(null)
     setResult(null)
     setMediaUrl(null)
-    setFrameCount(null)
-    setPerSecond(null)
     setShowModal(false)
 
     const formData = new FormData()
@@ -61,9 +61,11 @@ export default function UploadForm() {
       })
 
       const data = await response.json()
-      setResult(data.detections || [])
-      setFrameCount(data.frames_written || null)
-      setPerSecond(data.detections_per_second || null)
+      setResult({
+        detections: data.detections || [],
+        detections_per_second: data.detections_per_second,
+        frames_written: data.frames_written,
+      })
 
       if (data.media_url && data.type) {
         setMediaUrl(API_BASE + data.media_url)
@@ -114,7 +116,7 @@ export default function UploadForm() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div ref={modalRef} className="bg-white rounded-xl p-6 shadow-lg max-w-2xl w-full">
+          <div ref={modalRef} className="bg-white rounded-xl p-6 shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-semibold text-center text-cyan-800 mb-4">Detection Results</h2>
 
             {mediaUrl && mediaType === "image" && (
@@ -136,7 +138,14 @@ export default function UploadForm() {
             {mediaUrl && mediaType === "video" && (
               <>
                 <h3 className="text-lg font-medium text-gray-800 mb-2">Detected Video</h3>
-                <video src={mediaUrl} controls className="w-full rounded mb-4" />
+                <a
+                  href={mediaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline mb-4 inline-block"
+                >
+                  Click here to view detected video
+                </a>
                 <a
                   href={mediaUrl}
                   download
@@ -146,37 +155,38 @@ export default function UploadForm() {
                 >
                   Download Detected Video
                 </a>
-
-                {frameCount !== null && (
-                  <p className="text-gray-700 mb-2">Frames written: {frameCount}</p>
-                )}
-
-                {perSecond && (
-                  <div className="mt-2">
-                    <h3 className="text-lg font-medium text-gray-800 mb-2">Per-second Species</h3>
-                    <ul className="list-disc pl-6 text-gray-700 max-h-48 overflow-y-auto">
-                      {Object.entries(perSecond).map(([sec, species]) => (
-                        <li key={sec}>
-                          <strong>Second {sec}:</strong>{" "}
-                          {species.length > 0 ? species.join(", ") : "None"}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </>
             )}
 
-            {result && result.length > 0 && (
-              <div className="mt-4">
-                <h3 className="text-lg font-medium text-gray-800 mb-2">Detected Species</h3>
-                <ul className="list-disc pl-6 text-gray-700">
-                  {result.map((item, index) => (
-                    <li key={index}>{item}</li>
-                  ))}
-                </ul>
-              </div>
+            {result && result.frames_written && (
+              <p className="mt-2 text-sm text-gray-600">Frames written: {result.frames_written}</p>
             )}
+
+            <div className="max-h-[400px] overflow-y-auto mt-4 pr-2">
+              {result && result.detections_per_second && (
+                <div>
+                  <h3 className="text-lg font-medium text-gray-800 mb-2">Per-second Species</h3>
+                  <ul className="list-disc pl-6 text-gray-700">
+                    {Object.entries(result.detections_per_second).map(([second, species]) => (
+                      <li key={second}>
+                        <strong>Second {second}:</strong> {species.join(", ")}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {result && result.detections && result.detections.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-lg font-medium text-gray-800 mb-2">Detected Species</h3>
+                  <ul className="list-disc pl-6 text-gray-700">
+                    {result.detections.map((item, index) => (
+                      <li key={index}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
 
             <div className="text-center mt-6">
               <button

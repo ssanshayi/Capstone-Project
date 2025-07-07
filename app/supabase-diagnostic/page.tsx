@@ -1,404 +1,325 @@
-'use client'
+"use client"
 
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  RefreshCw,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Database,
-  Shield,
-  Clock,
-  Server
-} from 'lucide-react'
+import { useState, useEffect } from "react"
+import { supabase } from "@/lib/supabase"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle, CheckCircle, XCircle } from "lucide-react"
 
-interface DiagnosticResult {
-  timestamp: string
-  connection: {
-    status: 'connected' | 'error' | 'unknown'
-    url: string
-    latency: number
-    error: string | null
-  }
-  tables: Record<string, {
-    status: 'healthy' | 'error'
-    count: number
-    error: string | null
-    lastChecked: string
-  }>
-  summary: {
-    totalTables: number
-    totalRecords: number
-    healthyTables: number
-    errors: string[]
-  }
-  auth?: {
-    status: 'available' | 'error'
-    error: string | null
-  }
-  rls?: {
-    status: 'active' | 'error'
-    error: string | null
-  }
-}
+export default function SupabaseDiagnosticPage() {
+  const [diagnostics, setDiagnostics] = useState<any>({})
+  const [isLoading, setIsLoading] = useState(false)
 
-interface TableDetails {
-  table: string
-  timestamp: string
-  details: {
-    status: 'success' | 'error'
-    count: number
-    sampleData: any[]
-    columns: string[]
-    error?: string
-  }
-}
+  const runDiagnostics = async () => {
+    setIsLoading(true)
+    const results: any = {}
 
-export default function SupabaseDiagnostic() {
-  const [diagnostic, setDiagnostic] = useState<DiagnosticResult | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [selectedTable, setSelectedTable] = useState<string | null>(null)
-  const [tableDetails, setTableDetails] = useState<TableDetails | null>(null)
-  const [loadingTable, setLoadingTable] = useState(false)
-
-  const runDiagnostic = async () => {
-    setLoading(true)
     try {
-      const response = await fetch('/api/supabase-diagnostic')
-      const data = await response.json()
-      setDiagnostic(data)
-    } catch (error) {
-      console.error('Diagnostic failed:', error)
-    } finally {
-      setLoading(false)
+      // Test 1: Check if Supabase client is initialized
+      results.clientInitialized = !!supabase
+      results.supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Missing'
+      results.supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Set' : 'Missing'
+
+      // Test 2: Check authentication status (client-side)
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      results.authStatus = authError ? `Error: ${authError.message}` : user ? 'Authenticated' : 'Not authenticated'
+      results.userId = user?.id || 'None'
+      results.userEmail = user?.email || 'None'
+      results.userRole = user?.user_metadata?.role || 'None'
+
+      // Test 3: Test simple auth API route
+      try {
+        const authResponse = await fetch('/api/test-auth')
+        const authData = await authResponse.json()
+        results.simpleAuthApi = authResponse.ok ? 'Success' : `Error: ${authResponse.status} - ${authData.error || 'Unknown error'}`
+        results.simpleAuthData = authData
+      } catch (apiError: any) {
+        results.simpleAuthApi = `Error: ${apiError.message}`
+      }
+
+      // Test 4: Test profiles table access (only if authenticated)
+      if (user) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('*')
+          .limit(5)
+        
+        results.profilesAccess = profilesError ? `Error: ${profilesError.message}` : `Success: ${profiles?.length || 0} records`
+        results.profilesData = profiles || []
+      } else {
+        results.profilesAccess = 'Skipped: Not authenticated'
+        results.profilesData = []
+      }
+
+      // Test 5: Test species_tracking table access (only if authenticated)
+      if (user) {
+        const { data: tracking, error: trackingError } = await supabase
+          .from('species_tracking')
+          .select('*')
+          .limit(5)
+        
+        results.trackingAccess = trackingError ? `Error: ${trackingError.message}` : `Success: ${tracking?.length || 0} records`
+        results.trackingData = tracking || []
+      } else {
+        results.trackingAccess = 'Skipped: Not authenticated'
+        results.trackingData = []
+      }
+
+      // Test 6: Test user_activities table access (only if authenticated)
+      if (user) {
+        const { data: activities, error: activitiesError } = await supabase
+          .from('user_activities')
+          .select('*')
+          .limit(5)
+        
+        results.activitiesAccess = activitiesError ? `Error: ${activitiesError.message}` : `Success: ${activities?.length || 0} records`
+        results.activitiesData = activities || []
+      } else {
+        results.activitiesAccess = 'Skipped: Not authenticated'
+        results.activitiesData = []
+      }
+
+      // Test 7: Test admin API endpoint (only if authenticated)
+      if (user) {
+        try {
+          const response = await fetch('/api/admin/users')
+          const apiData = await response.json()
+          results.adminApiAccess = response.ok ? 'Success' : `Error: ${response.status} - ${apiData.error || 'Unknown error'}`
+          results.adminApiData = apiData
+        } catch (apiError: any) {
+          results.adminApiAccess = `Error: ${apiError.message}`
+        }
+      } else {
+        results.adminApiAccess = 'Skipped: Not authenticated'
+      }
+
+    } catch (error: any) {
+      results.generalError = error.message
+    }
+
+    setDiagnostics(results)
+    setIsLoading(false)
+  }
+
+  const getStatusIcon = (status: any) => {
+    if (!status || typeof status !== 'string') {
+      return <AlertCircle className="h-4 w-4 text-yellow-500" />
+    }
+    
+    if (status.includes('Success') || status === 'Set' || status === 'Yes') {
+      return <CheckCircle className="h-4 w-4 text-green-500" />
+    } else if (status.includes('Error') || status === 'Missing' || status === 'No') {
+      return <XCircle className="h-4 w-4 text-red-500" />
+    } else {
+      return <AlertCircle className="h-4 w-4 text-yellow-500" />
     }
   }
 
-  const checkTableDetails = async (table: string) => {
-    setLoadingTable(true)
-    setSelectedTable(table)
-    try {
-      const response = await fetch('/api/supabase-diagnostic', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ table })
-      })
-      const data = await response.json()
-      setTableDetails(data)
-    } catch (error) {
-      console.error('Table check failed:', error)
-    } finally {
-      setLoadingTable(false)
+  const getStatusBadge = (status: any) => {
+    if (!status || typeof status !== 'string') {
+      return <Badge variant="secondary">Unknown</Badge>
     }
-  }
-
-  useEffect(() => {
-    runDiagnostic()
-  }, [])
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'connected':
-      case 'healthy':
-      case 'available':
-      case 'active':
-        return <CheckCircle className="w-4 h-4 text-green-500" />
-      case 'error':
-        return <XCircle className="w-4 h-4 text-red-500" />
-      default:
-        return <AlertCircle className="w-4 h-4 text-yellow-500" />
-    }
-  }
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'connected':
-      case 'healthy':
-      case 'available':
-      case 'active':
-        return <Badge variant="secondary" className="bg-green-100 text-green-800">Healthy</Badge>
-      case 'error':
-        return <Badge variant="destructive">Error</Badge>
-      default:
-        return <Badge variant="outline">Unknown</Badge>
+    
+    if (status.includes('Success') || status === 'Set' || status === 'Yes') {
+      return <Badge variant="default" className="bg-green-100 text-green-800">Success</Badge>
+    } else if (status.includes('Error') || status === 'Missing' || status === 'No') {
+      return <Badge variant="destructive">Error</Badge>
+    } else {
+      return <Badge variant="secondary">Warning</Badge>
     }
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
-      <div className="flex items-center justify-between mb-6">
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Supabase Connection Diagnostics</h1>
-          <p className="text-gray-600 mt-2">Check Supabase connectivity and database health</p>
+          <h1 className="text-3xl font-bold">Supabase Diagnostic Tool</h1>
+          <p className="text-gray-600 mt-2">Check your Supabase setup and authentication</p>
         </div>
-        <Button 
-          onClick={runDiagnostic} 
-          disabled={loading}
-          className="flex items-center gap-2"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Checking...' : 'Re-run Check'}
+        <Button onClick={runDiagnostics} disabled={isLoading}>
+          {isLoading ? 'Running...' : 'Run Diagnostics'}
         </Button>
       </div>
 
-      {diagnostic && (
-        <div className="space-y-6">
-          {/* Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Server className="w-4 h-4" />
-                  Connection Status
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  {getStatusIcon(diagnostic.connection.status)}
-                  {getStatusBadge(diagnostic.connection.status)}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Latency: {diagnostic.connection.latency}ms
-                </p>
-              </CardContent>
-            </Card>
+      {!diagnostics.authStatus && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Click "Run Diagnostics" to check your Supabase setup. If you're not authenticated, 
+            visit <a href="/login-test" className="text-blue-600 underline">Login Test</a> to authenticate first.
+          </AlertDescription>
+        </Alert>
+      )}
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Database className="w-4 h-4" />
-                  Table Health
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Healthy Tables</span>
-                    <span className="font-medium">{diagnostic.summary.healthyTables}/{diagnostic.summary.totalTables}</span>
+      {Object.keys(diagnostics).length > 0 && (
+        <div className="grid gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Environment & Client</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span>Client Initialized:</span>
+                <div className="flex items-center gap-2">
+                  {getStatusIcon(diagnostics.clientInitialized)}
+                  {getStatusBadge(diagnostics.clientInitialized)}
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Supabase URL:</span>
+                <div className="flex items-center gap-2">
+                  {getStatusIcon(diagnostics.supabaseUrl)}
+                  {getStatusBadge(diagnostics.supabaseUrl)}
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Supabase Key:</span>
+                <div className="flex items-center gap-2">
+                  {getStatusIcon(diagnostics.supabaseKey)}
+                  {getStatusBadge(diagnostics.supabaseKey)}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Authentication</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span>Auth Status:</span>
+                <div className="flex items-center gap-2">
+                  {getStatusIcon(diagnostics.authStatus)}
+                  {getStatusBadge(diagnostics.authStatus)}
+                </div>
+              </div>
+              <div className="flex justify-between">
+                <span>User ID:</span>
+                <span className="font-mono text-sm">{diagnostics.userId}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>User Email:</span>
+                <span className="font-mono text-sm">{diagnostics.userEmail}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>User Role:</span>
+                <div className="flex items-center gap-2">
+                  <Badge variant={diagnostics.userRole === 'admin' ? 'default' : 'secondary'}>
+                    {diagnostics.userRole}
+                  </Badge>
+                  {diagnostics.userRole === 'admin' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>API Routes</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span>Simple Auth API:</span>
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(diagnostics.simpleAuthApi)}
+                    {getStatusBadge(diagnostics.simpleAuthApi)}
                   </div>
-                  <Progress 
-                    value={(diagnostic.summary.healthyTables / diagnostic.summary.totalTables) * 100} 
-                    className="h-2"
-                  />
                 </div>
-              </CardContent>
-            </Card>
+                <p className="text-sm text-gray-600">{diagnostics.simpleAuthApi}</p>
+                {diagnostics.simpleAuthData && (
+                  <pre className="text-xs bg-gray-100 p-2 rounded mt-2 overflow-auto">
+                    {JSON.stringify(diagnostics.simpleAuthData, null, 2)}
+                  </pre>
+                )}
+              </div>
+              
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span>Admin Users API:</span>
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(diagnostics.adminApiAccess)}
+                    {getStatusBadge(diagnostics.adminApiAccess)}
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">{diagnostics.adminApiAccess}</p>
+              </div>
+            </CardContent>
+          </Card>
 
+          <Card>
+            <CardHeader>
+              <CardTitle>Database Access</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span>Profiles Table:</span>
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(diagnostics.profilesAccess)}
+                    {getStatusBadge(diagnostics.profilesAccess)}
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">{diagnostics.profilesAccess}</p>
+              </div>
+              
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span>Species Tracking:</span>
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(diagnostics.trackingAccess)}
+                    {getStatusBadge(diagnostics.trackingAccess)}
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">{diagnostics.trackingAccess}</p>
+              </div>
+              
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span>User Activities:</span>
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(diagnostics.activitiesAccess)}
+                    {getStatusBadge(diagnostics.activitiesAccess)}
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">{diagnostics.activitiesAccess}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {diagnostics.generalError && (
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Shield className="w-4 h-4" />
-                  Auth Status
-                </CardTitle>
+              <CardHeader>
+                <CardTitle>General Error</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-2">
-                  {getStatusIcon(diagnostic.auth?.status || 'unknown')}
-                  {getStatusBadge(diagnostic.auth?.status || 'unknown')}
-                </div>
+                <p className="text-red-600">{diagnostics.generalError}</p>
               </CardContent>
             </Card>
+          )}
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Clock className="w-4 h-4" />
-                  Last Check
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600">
-                  {new Date(diagnostic.timestamp).toLocaleString()}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Errors */}
-          {diagnostic.summary.errors.length > 0 && (
+          {diagnostics.authStatus === 'Not authenticated' && (
             <Alert>
-              <AlertCircle className="w-4 h-4" />
+              <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                <div className="space-y-1">
-                  <p className="font-medium">Detected the following issues:</p>
-                  <ul className="list-disc list-inside space-y-1 text-sm">
-                    {diagnostic.summary.errors.map((error, index) => (
-                      <li key={index} className="text-red-600">{error}</li>
-                    ))}
-                  </ul>
-                </div>
+                <strong>Authentication Required:</strong> You need to log in to test admin functionality. 
+                Visit the <a href="/login-test" className="text-blue-600 underline">Login Test page</a> to authenticate.
               </AlertDescription>
             </Alert>
           )}
 
-          {/* Details */}
-          <Tabs defaultValue="connection" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="connection">Connection</TabsTrigger>
-              <TabsTrigger value="tables">Tables</TabsTrigger>
-              <TabsTrigger value="security">Security</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="connection" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Connection Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">Supabase URL</label>
-                      <p className="text-sm text-gray-600 font-mono bg-gray-50 p-2 rounded">
-                        {diagnostic.connection.url}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">Latency</label>
-                      <p className="text-sm text-gray-600">{diagnostic.connection.latency}ms</p>
-                    </div>
-                  </div>
-                  {diagnostic.connection.error && (
-                    <Alert>
-                      <XCircle className="w-4 h-4" />
-                      <AlertDescription>
-                        Connection Error: {diagnostic.connection.error}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="tables" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Table Overview</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {Object.entries(diagnostic.tables).map(([table, info]) => (
-                        <div key={table} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div className="flex items-center gap-3">
-                            {getStatusIcon(info.status)}
-                            <div>
-                              <p className="font-medium">{table}</p>
-                              <p className="text-sm text-gray-500">{info.count} records</p>
-                            </div>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => checkTableDetails(table)}
-                            disabled={loadingTable}
-                          >
-                            View Details
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {selectedTable && tableDetails && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Table Details: {selectedTable}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {loadingTable ? (
-                        <div className="flex items-center justify-center py-8">
-                          <RefreshCw className="w-6 h-6 animate-spin" />
-                          <span className="ml-2">Loading...</span>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          <div>
-                            <p className="text-sm font-medium">Record Count: {tableDetails.details.count}</p>
-                            <p className="text-sm text-gray-600">
-                              Column Count: {tableDetails.details.columns?.length || 0}
-                            </p>
-                          </div>
-
-                          {tableDetails.details.columns && (
-                            <div>
-                              <p className="text-sm font-medium mb-2">Columns:</p>
-                              <div className="flex flex-wrap gap-1">
-                                {tableDetails.details.columns.map((col, index) => (
-                                  <Badge key={index} variant="outline" className="text-xs">
-                                    {col}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {tableDetails.details.error && (
-                            <Alert>
-                              <XCircle className="w-4 h-4" />
-                              <AlertDescription>
-                                {tableDetails.details.error}
-                              </AlertDescription>
-                            </Alert>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="security" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Authentication</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2 mb-2">
-                      {getStatusIcon(diagnostic.auth?.status || 'unknown')}
-                      {getStatusBadge(diagnostic.auth?.status || 'unknown')}
-                    </div>
-                    {diagnostic.auth?.error && (
-                      <Alert>
-                        <XCircle className="w-4 h-4" />
-                        <AlertDescription>
-                          {diagnostic.auth.error}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Row-Level Security (RLS)</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2 mb-2">
-                      {getStatusIcon(diagnostic.rls?.status || 'unknown')}
-                      {getStatusBadge(diagnostic.rls?.status || 'unknown')}
-                    </div>
-                    {diagnostic.rls?.error && (
-                      <Alert>
-                        <XCircle className="w-4 h-4" />
-                        <AlertDescription>
-                          {diagnostic.rls.error}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-          </Tabs>
+          {diagnostics.userRole !== 'admin' && diagnostics.userEmail && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Admin Access Required:</strong> Your user doesn't have admin privileges. 
+                Either use admin@admin.com or admin@example.com, or set your user's role to "admin" in Supabase.
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       )}
     </div>

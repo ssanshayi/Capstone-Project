@@ -33,7 +33,7 @@ const sidebarItems = [
   },
   {
     title: "Database Diagnostic",
-    href: "/supabase-diagnostic",
+    href: "/admin/database-diagnostic",
     icon: Database
   },
   {

@@ -84,6 +84,24 @@ export default function SpeciesPage() {
     fetchSpecies()
   }, [])
 
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession()
+      if (error) {
+        console.error("Error getting session:", error.message || error)
+        return
+      }
+      if (!session) {
+        console.warn("No active session found. You must login.")
+      } else {
+        console.log("Logged in as:", session.user.email)
+      }
+    }
+    checkSession()
+  }, [])
+
+  
+
   const fetchSpecies = async () => {
     try {
       const { data, error } = await supabase
@@ -92,14 +110,15 @@ export default function SpeciesPage() {
         .order('created_at', { ascending: false })
 
       if (error) {
-        console.error('Error fetching species:', error)
+        console.error('Supabase fetch error:', error.message || error)
         toast.error('Failed to fetch species list')
-      } else {
-        setSpecies(data || [])
+        return
       }
-    } catch (error) {
-      console.error('Error:', error)
-      toast.error('Failed to fetch species list')
+
+      setSpecies(data || [])
+    } catch (err: any) {
+      console.error('Unexpected error:', err.message || err)
+      toast.error('Unexpected error fetching species list')
     }
   }
 
@@ -130,10 +149,8 @@ export default function SpeciesPage() {
         }
         toast.success('Species updated successfully')
       }
-      
-      // Refresh the list
+
       await fetchSpecies()
-      
       setIsAddingNew(false)
       setEditingSpecies(null)
       setNewSpecies({
@@ -170,7 +187,7 @@ export default function SpeciesPage() {
         toast.error('Failed to delete species')
         return
       }
-      
+
       toast.success('Species deleted successfully')
       await fetchSpecies()
     } catch (error) {
@@ -194,7 +211,7 @@ export default function SpeciesPage() {
 
   const filteredSpecies = species.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         s.scientific_name.toLowerCase().includes(searchTerm.toLowerCase())
+      s.scientific_name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = categoryFilter === "all" || s.category === categoryFilter
     return matchesSearch && matchesCategory
   })
@@ -217,26 +234,28 @@ export default function SpeciesPage() {
             <DialogHeader>
               <DialogTitle>Add New Species</DialogTitle>
             </DialogHeader>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name">Species Name</Label>
                 <Input
                   id="name"
                   value={newSpecies.name}
-                  onChange={(e) => setNewSpecies({...newSpecies, name: e.target.value})}
+                  onChange={(e) => setNewSpecies(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., Blue Whale"
                 />
               </div>
               <div>
-                <Label htmlFor="scientificName">Scientific Name</Label>
+                <Label htmlFor="scientific_name">Scientific Name</Label>
                 <Input
-                  id="scientificName"
+                  id="scientific_name"
                   value={newSpecies.scientific_name}
-                  onChange={(e) => setNewSpecies({...newSpecies, scientific_name: e.target.value})}
+                  onChange={(e) => setNewSpecies(prev => ({ ...prev, scientific_name: e.target.value }))}
+                  placeholder="e.g., Balaenoptera musculus"
                 />
               </div>
               <div>
                 <Label htmlFor="category">Category</Label>
-                <Select value={newSpecies.category} onValueChange={(value) => setNewSpecies({...newSpecies, category: value})}>
+                <Select value={newSpecies.category} onValueChange={(value) => setNewSpecies(prev => ({ ...prev, category: value }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -248,8 +267,8 @@ export default function SpeciesPage() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="status">Conservation Status</Label>
-                <Select value={newSpecies.conservation_status} onValueChange={(value) => setNewSpecies({...newSpecies, conservation_status: value})}>
+                <Label htmlFor="conservation_status">Conservation Status</Label>
+                <Select value={newSpecies.conservation_status} onValueChange={(value) => setNewSpecies(prev => ({ ...prev, conservation_status: value }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -260,13 +279,23 @@ export default function SpeciesPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={newSpecies.description}
+                  onChange={(e) => setNewSpecies(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Detailed description of the species..."
+                  rows={3}
+                />
+              </div>
               <div>
                 <Label htmlFor="habitat">Habitat</Label>
                 <Input
                   id="habitat"
                   value={newSpecies.habitat}
-                  onChange={(e) => setNewSpecies({...newSpecies, habitat: e.target.value})}
-                  placeholder="e.g., Temperate deep ocean waters"
+                  onChange={(e) => setNewSpecies(prev => ({ ...prev, habitat: e.target.value }))}
+                  placeholder="e.g., Deep ocean, Coastal waters"
                 />
               </div>
               <div>
@@ -274,8 +303,8 @@ export default function SpeciesPage() {
                 <Input
                   id="diet"
                   value={newSpecies.diet}
-                  onChange={(e) => setNewSpecies({...newSpecies, diet: e.target.value})}
-                  placeholder="e.g., Fish, crustaceans"
+                  onChange={(e) => setNewSpecies(prev => ({ ...prev, diet: e.target.value }))}
+                  placeholder="e.g., Krill, Small fish"
                 />
               </div>
               <div>
@@ -283,8 +312,8 @@ export default function SpeciesPage() {
                 <Input
                   id="lifespan"
                   value={newSpecies.lifespan}
-                  onChange={(e) => setNewSpecies({...newSpecies, lifespan: e.target.value})}
-                  placeholder="e.g., 20-25 years"
+                  onChange={(e) => setNewSpecies(prev => ({ ...prev, lifespan: e.target.value }))}
+                  placeholder="e.g., 80-90 years"
                 />
               </div>
               <div>
@@ -292,19 +321,19 @@ export default function SpeciesPage() {
                 <Input
                   id="size_range"
                   value={newSpecies.size_range}
-                  onChange={(e) => setNewSpecies({...newSpecies, size_range: e.target.value})}
-                  placeholder="e.g., 2-4 meters"
+                  onChange={(e) => setNewSpecies(prev => ({ ...prev, size_range: e.target.value }))}
+                  placeholder="e.g., 20-30 meters"
                 />
               </div>
               <div>
                 <Label htmlFor="population_trend">Population Trend</Label>
-                <Select value={newSpecies.population_trend} onValueChange={(value) => setNewSpecies({...newSpecies, population_trend: value})}>
+                <Select value={newSpecies.population_trend} onValueChange={(value) => setNewSpecies(prev => ({ ...prev, population_trend: value }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {populationTrendOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    {populationTrendOptions.map(trend => (
+                      <SelectItem key={trend.value} value={trend.value}>{trend.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -317,211 +346,174 @@ export default function SpeciesPage() {
                   min="0"
                   max="100"
                   value={newSpecies.population_percentage}
-                  onChange={(e) => setNewSpecies({...newSpecies, population_percentage: parseInt(e.target.value) || 0})}
-                  placeholder="Historical level percentage"
+                  onChange={(e) => setNewSpecies(prev => ({ ...prev, population_percentage: parseInt(e.target.value) || 0 }))}
                 />
               </div>
-              <div className="col-span-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={newSpecies.description}
-                  onChange={(e) => setNewSpecies({...newSpecies, description: e.target.value})}
-                  rows={3}
-                />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="tags">Tags (comma separated)</Label>
+              <div className="md:col-span-2">
+                <Label htmlFor="image_url">Image URL</Label>
                 <Input
-                  id="tags"
-                  value={newSpecies.tags.join(', ')}
-                  onChange={(e) => setNewSpecies({...newSpecies, tags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag)})}
-                  placeholder="e.g., Apex predator, Endangered species, Migratory"
-                />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="threats">Threats (comma separated)</Label>
-                <Input
-                  id="threats"
-                  value={newSpecies.threats.join(', ')}
-                  onChange={(e) => setNewSpecies({...newSpecies, threats: e.target.value.split(',').map(threat => threat.trim()).filter(threat => threat)})}
-                  placeholder="e.g., Overfishing, Ocean pollution, Habitat destruction"
-                />
-              </div>
-              <div className="col-span-2">
-                <Label>Species Image</Label>
-                <ImageUpload
+                  id="image_url"
                   value={newSpecies.image_url}
-                  onChange={(url) => setNewSpecies({...newSpecies, image_url: url})}
+                  onChange={(e) => setNewSpecies(prev => ({ ...prev, image_url: e.target.value }))}
+                  placeholder="https://example.com/image.jpg"
                 />
               </div>
-              <div className="col-span-2">
-                <Button onClick={() => saveSpecies(newSpecies)} className="w-full">
-                  Save Species
-                </Button>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={() => setIsAddingNew(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => saveSpecies(newSpecies)}>
+                Add Species
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Species Dialog */}
+        <Dialog open={!!editingSpecies} onOpenChange={() => setEditingSpecies(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Species</DialogTitle>
+            </DialogHeader>
+            {editingSpecies && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-name">Species Name</Label>
+                  <Input
+                    id="edit-name"
+                    value={editingSpecies.name}
+                    onChange={(e) => setEditingSpecies(prev => prev ? { ...prev, name: e.target.value } : null)}
+                    placeholder="e.g., Blue Whale"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-scientific_name">Scientific Name</Label>
+                  <Input
+                    id="edit-scientific_name"
+                    value={editingSpecies.scientific_name}
+                    onChange={(e) => setEditingSpecies(prev => prev ? { ...prev, scientific_name: e.target.value } : null)}
+                    placeholder="e.g., Balaenoptera musculus"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-category">Category</Label>
+                  <Select value={editingSpecies.category} onValueChange={(value) => setEditingSpecies(prev => prev ? { ...prev, category: value } : null)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(cat => (
+                        <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-conservation_status">Conservation Status</Label>
+                  <Select value={editingSpecies.conservation_status} onValueChange={(value) => setEditingSpecies(prev => prev ? { ...prev, conservation_status: value } : null)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map(status => (
+                        <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="edit-description">Description</Label>
+                  <Textarea
+                    id="edit-description"
+                    value={editingSpecies.description}
+                    onChange={(e) => setEditingSpecies(prev => prev ? { ...prev, description: e.target.value } : null)}
+                    placeholder="Detailed description of the species..."
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-habitat">Habitat</Label>
+                  <Input
+                    id="edit-habitat"
+                    value={editingSpecies.habitat}
+                    onChange={(e) => setEditingSpecies(prev => prev ? { ...prev, habitat: e.target.value } : null)}
+                    placeholder="e.g., Deep ocean, Coastal waters"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-diet">Diet</Label>
+                  <Input
+                    id="edit-diet"
+                    value={editingSpecies.diet}
+                    onChange={(e) => setEditingSpecies(prev => prev ? { ...prev, diet: e.target.value } : null)}
+                    placeholder="e.g., Krill, Small fish"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-lifespan">Lifespan</Label>
+                  <Input
+                    id="edit-lifespan"
+                    value={editingSpecies.lifespan}
+                    onChange={(e) => setEditingSpecies(prev => prev ? { ...prev, lifespan: e.target.value } : null)}
+                    placeholder="e.g., 80-90 years"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-size_range">Size Range</Label>
+                  <Input
+                    id="edit-size_range"
+                    value={editingSpecies.size_range}
+                    onChange={(e) => setEditingSpecies(prev => prev ? { ...prev, size_range: e.target.value } : null)}
+                    placeholder="e.g., 20-30 meters"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-population_trend">Population Trend</Label>
+                  <Select value={editingSpecies.population_trend} onValueChange={(value) => setEditingSpecies(prev => prev ? { ...prev, population_trend: value } : null)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {populationTrendOptions.map(trend => (
+                        <SelectItem key={trend.value} value={trend.value}>{trend.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-population_percentage">Population Percentage</Label>
+                  <Input
+                    id="edit-population_percentage"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={editingSpecies.population_percentage}
+                    onChange={(e) => setEditingSpecies(prev => prev ? { ...prev, population_percentage: parseInt(e.target.value) || 0 } : null)}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="edit-image_url">Image URL</Label>
+                  <Input
+                    id="edit-image_url"
+                    value={editingSpecies.image_url || ''}
+                    onChange={(e) => setEditingSpecies(prev => prev ? { ...prev, image_url: e.target.value } : null)}
+                    placeholder="https://example.com/image.jpg"
+                  />
+                </div>
               </div>
+            )}
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={() => setEditingSpecies(null)}>
+                Cancel
+              </Button>
+              <Button onClick={() => editingSpecies && saveSpecies(editingSpecies)}>
+                Save Changes
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
-
-      {/* Edit Species Dialog */}
-      <Dialog open={!!editingSpecies} onOpenChange={() => setEditingSpecies(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Species</DialogTitle>
-          </DialogHeader>
-          {editingSpecies && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="edit-name">Name</Label>
-                <Input
-                  id="edit-name"
-                  value={editingSpecies.name}
-                  onChange={(e) => setEditingSpecies({...editingSpecies, name: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-scientificName">Scientific Name</Label>
-                <Input
-                  id="edit-scientificName"
-                  value={editingSpecies.scientific_name}
-                  onChange={(e) => setEditingSpecies({...editingSpecies, scientific_name: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-category">Category</Label>
-                <Select value={editingSpecies.category} onValueChange={(value) => setEditingSpecies({...editingSpecies, category: value})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map(cat => (
-                      <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="edit-status">Conservation Status</Label>
-                <Select value={editingSpecies.conservation_status} onValueChange={(value) => setEditingSpecies({...editingSpecies, conservation_status: value})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map(status => (
-                      <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="edit-habitat">Habitat</Label>
-                <Input
-                  id="edit-habitat"
-                  value={editingSpecies.habitat || ''}
-                  onChange={(e) => setEditingSpecies({...editingSpecies, habitat: e.target.value})}
-                  placeholder="e.g., Temperate deep ocean waters"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-diet">Diet</Label>
-                <Input
-                  id="edit-diet"
-                  value={editingSpecies.diet || ''}
-                  onChange={(e) => setEditingSpecies({...editingSpecies, diet: e.target.value})}
-                  placeholder="e.g., Fish, crustaceans"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-lifespan">Lifespan</Label>
-                <Input
-                  id="edit-lifespan"
-                  value={editingSpecies.lifespan || ''}
-                  onChange={(e) => setEditingSpecies({...editingSpecies, lifespan: e.target.value})}
-                  placeholder="e.g., 20-25 years"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-size_range">Size Range</Label>
-                <Input
-                  id="edit-size_range"
-                  value={editingSpecies.size_range || ''}
-                  onChange={(e) => setEditingSpecies({...editingSpecies, size_range: e.target.value})}
-                  placeholder="e.g., 2-4 meters"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-population_trend">Population Trend</Label>
-                <Select value={editingSpecies.population_trend || 'Stable'} onValueChange={(value) => setEditingSpecies({...editingSpecies, population_trend: value})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {populationTrendOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="edit-population_percentage">Population Percentage</Label>
-                <Input
-                  id="edit-population_percentage"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={editingSpecies.population_percentage || 50}
-                  onChange={(e) => setEditingSpecies({...editingSpecies, population_percentage: parseInt(e.target.value) || 0})}
-                  placeholder="Historical level percentage"
-                />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="edit-description">Description</Label>
-                <Textarea
-                  id="edit-description"
-                  value={editingSpecies.description}
-                  onChange={(e) => setEditingSpecies({...editingSpecies, description: e.target.value})}
-                  rows={3}
-                />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="edit-tags">Tags (comma separated)</Label>
-                <Input
-                  id="edit-tags"
-                  value={(editingSpecies.tags || []).join(', ')}
-                  onChange={(e) => setEditingSpecies({...editingSpecies, tags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag)})}
-                  placeholder="e.g., Apex predator, Endangered species, Migratory"
-                />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="edit-threats">Threats (comma separated)</Label>
-                <Input
-                  id="edit-threats"
-                  value={(editingSpecies.threats || []).join(', ')}
-                  onChange={(e) => setEditingSpecies({...editingSpecies, threats: e.target.value.split(',').map(threat => threat.trim()).filter(threat => threat)})}
-                  placeholder="e.g., Overfishing, Ocean pollution, Habitat destruction"
-                />
-              </div>
-              <div className="col-span-2">
-                <Label>Species Image</Label>
-                <ImageUpload
-                  value={editingSpecies.image_url || ''}
-                  onChange={(url) => setEditingSpecies({...editingSpecies, image_url: url})}
-                />
-              </div>
-              <div className="col-span-2">
-                <Button onClick={() => {
-                  const { id, created_at, ...speciesData } = editingSpecies
-                  saveSpecies(speciesData)
-                }} className="w-full">
-                  Update Species
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       <Card>
         <CardHeader>
@@ -589,6 +581,13 @@ export default function SpeciesPage() {
                   </TableCell>
                 </TableRow>
               ))}
+              {filteredSpecies.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-gray-500">
+                    No species found or you're not authorized to view the data.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

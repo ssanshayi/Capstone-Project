@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from ultralytics import YOLO
 import os, tempfile, cv2, uuid, numpy as np
@@ -69,17 +69,19 @@ def predict():
 def serve_static(filename):
     ext = os.path.splitext(filename)[-1].lower()
     mimetype = "video/mp4" if ext == ".mp4" else "image/jpeg"
-    return send_file(os.path.join("static/results", filename), mimetype=mimetype)
+    return send_from_directory("static/results", filename, mimetype=mimetype)
 
 def detect_video_and_save(file_path):
     cap = cv2.VideoCapture(file_path)
-    filename = f"{uuid.uuid4().hex}_out.avi"
-    output_path = os.path.join("static/results", filename)
+    filename = f"{uuid.uuid4().hex}_out.mp4"
+output_path = os.path.join("static/results", filename)
+fourcc = cv2.VideoWriter_fourcc(*'a', 'v', 'c', '1')  # 使用 H.264 编码，更适合浏览器播放
+
 
     if not cap.isOpened():
         raise RuntimeError("Failed to open input video.")
 
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')  # 使用 AVI 常见编码
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     fps = cap.get(cv2.CAP_PROP_FPS) or 24
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -116,17 +118,9 @@ def detect_video_and_save(file_path):
     cap.release()
     out.release()
 
-    if written_frame_count == 0:
-        black = np.zeros((int(height), int(width), 3), dtype=np.uint8)
-        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-        out.write(black)
-        out.release()
-        written_frame_count = 1
-
     duration = written_frame_count / fps
     fps_int = int(fps)
     per_second_results = {}
-
     for sec in range(int(duration) + 1):
         per_second_results[sec] = []
 
