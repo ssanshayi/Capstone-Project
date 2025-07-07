@@ -74,9 +74,7 @@ def serve_static(filename):
 def detect_video_and_save(file_path):
     cap = cv2.VideoCapture(file_path)
     filename = f"{uuid.uuid4().hex}_out.mp4"
-output_path = os.path.join("static/results", filename)
-fourcc = cv2.VideoWriter_fourcc(*'a', 'v', 'c', '1')  # 使用 H.264 编码，更适合浏览器播放
-
+    output_path = os.path.join("static/results", filename)
 
     if not cap.isOpened():
         raise RuntimeError("Failed to open input video.")
