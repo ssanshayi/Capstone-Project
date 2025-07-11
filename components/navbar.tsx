@@ -56,8 +56,11 @@ export default function Navbar() {
           <Link href="/species" className={`text-sm font-medium transition-colors ${isActive("/species") ? "text-cyan-700" : "hover:text-cyan-700"} animated-underline`} onClick={handleProtectedNav("/species")}>Species</Link>
           <Link href="/resources" className={`text-sm font-medium transition-colors ${isActive("/resources") ? "text-cyan-700" : "hover:text-cyan-700"} animated-underline`} onClick={handleProtectedNav("/resources")}>Resources</Link>
           <Link href="/#ai-detection" className="text-sm font-medium hover:text-cyan-700 transition-colors animated-underline" onClick={handleProtectedNav("/#ai-detection")}>AI Detection</Link>
-          <Link href="#" className="text-sm font-medium hover:text-cyan-700 transition-colors animated-underline">
-            About
+          <Link href="/donation" className={`text-sm font-medium transition-colors ${isActive("/donation") ? "text-cyan-700" : "hover:text-cyan-700"} animated-underline`}>
+          Donation
+          </Link>
+          <Link href="/partnerships" className={`text-sm font-medium transition-colors ${isActive("/partnerships") ? "text-cyan-700" : "hover:text-cyan-700"} animated-underline`} onClick={handleProtectedNav("/partnerships")}>
+          Partnerships
           </Link>
         </nav>
 
@@ -174,7 +177,6 @@ export default function Navbar() {
                           Settings
                         </Link>
                       </Button>
-                      {/* 为所有登录用户显示后台入口 */}
                       <Button asChild variant="outline" className="w-full justify-start" size="sm">
                         <Link href="/admin" onClick={() => setIsMenuOpen(false)}>
                           <Settings className="mr-2 h-4 w-4" />
