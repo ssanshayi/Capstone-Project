@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, Fish, BarChart3, FileText, Database, Settings } from "lucide-react"
+import { Coins } from "lucide-react"
 
 export default function AdminPage() {
   const router = useRouter()
@@ -75,6 +76,20 @@ export default function AdminPage() {
             </Button>
           </CardContent>
         </Card>
+        <Card className="hover:shadow-lg transition-shadow">
+         <CardHeader>
+          <div className="flex items-center gap-2">
+            <Coins className="h-5 w-5 text-yellow-600" />
+            <CardTitle>Donation Management</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-600 mb-4">View and manage donation records</p>
+          <Button className="w-full" onClick={() => router.push("/admin/donations")}>
+            View Donations
+          </Button>
+        </CardContent>
+      </Card>
 
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>

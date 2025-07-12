@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Database, CheckCircle, XCircle, AlertTriangle, RefreshCw, Activity, HardDrive, Users, Fish, FileText } from "lucide-react"
+import { Database, CheckCircle, XCircle, AlertTriangle, RefreshCw, Activity } from "lucide-react"
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase"
 
@@ -37,10 +37,10 @@ export default function DatabaseDiagnosticPage() {
   const runDiagnostics = async () => {
     setIsRunning(true)
     setResults([])
-    
+
     try {
       const diagnosticResults: DiagnosticResult[] = []
-      
+
       // Test 1: Basic Connection
       try {
         const { data, error } = await supabase.from('profiles').select('count').limit(1)
@@ -97,7 +97,7 @@ export default function DatabaseDiagnosticPage() {
 
       // Test 3: Table Access
       const tables = ['profiles', 'marine_species', 'resources', 'species_tracking', 'user_favorites', 'conservation_projects', 'news_articles', 'educational_resources']
-      
+
       for (const table of tables) {
         try {
           const { data, error } = await supabase.from(table).select('*').limit(1)
@@ -176,10 +176,10 @@ export default function DatabaseDiagnosticPage() {
       }
 
       setResults(diagnosticResults)
-      
+
       // Get table information
       await getTableInfo()
-      
+
     } catch (error) {
       console.error('Diagnostic error:', error)
       toast.error('Failed to run diagnostics')
@@ -191,7 +191,7 @@ export default function DatabaseDiagnosticPage() {
   const getTableInfo = async () => {
     const tables = ['profiles', 'marine_species', 'resources', 'species_tracking', 'user_favorites', 'conservation_projects', 'news_articles', 'educational_resources']
     const tableInfoResults: TableInfo[] = []
-    
+
     for (const table of tables) {
       try {
         const { count, error } = await supabase.from(table).select('*', { count: 'exact', head: true })
@@ -208,7 +208,7 @@ export default function DatabaseDiagnosticPage() {
         })
       }
     }
-    
+
     setTableInfo(tableInfoResults)
   }
 
@@ -299,7 +299,7 @@ export default function DatabaseDiagnosticPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -311,7 +311,7 @@ export default function DatabaseDiagnosticPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -323,7 +323,7 @@ export default function DatabaseDiagnosticPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -407,7 +407,7 @@ export default function DatabaseDiagnosticPage() {
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            <strong>Issues detected:</strong> {errorCount} diagnostic test(s) failed. 
+            <strong>Issues detected:</strong> {errorCount} diagnostic test(s) failed.
             Please check your database configuration and ensure all required tables and policies are properly set up.
           </AlertDescription>
         </Alert>
@@ -417,7 +417,7 @@ export default function DatabaseDiagnosticPage() {
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            <strong>Warnings:</strong> {warningCount} diagnostic test(s) have warnings. 
+            <strong>Warnings:</strong> {warningCount} diagnostic test(s) have warnings.
             These may not affect functionality but should be reviewed.
           </AlertDescription>
         </Alert>
@@ -427,11 +427,11 @@ export default function DatabaseDiagnosticPage() {
         <Alert>
           <CheckCircle className="h-4 w-4" />
           <AlertDescription>
-            <strong>All systems operational:</strong> All diagnostic tests passed successfully. 
+            <strong>All systems operational:</strong> All diagnostic tests passed successfully.
             Your database is healthy and functioning properly.
           </AlertDescription>
         </Alert>
       )}
     </div>
   )
-} 
+}

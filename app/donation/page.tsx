@@ -22,6 +22,88 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog"
+import { supabase } from "@/lib/supabase";
+
+// Move static data above the component so it's available for initial state
+const fundingData = [
+  { project: "Marine Species Tracking", raised: 75000, goal: 100000, percentage: 75 },
+  { project: "Ocean Habitat Restoration", raised: 45000, goal: 80000, percentage: 56 },
+  { project: "Seabird Protection Program", raised: 62000, goal: 90000, percentage: 69 },
+];
+
+const paymentMethods = [
+  {
+    id: "credit-card",
+    name: "Credit/Debit Card",
+    icon: CreditCard,
+    description: "Visa, Mastercard, American Express",
+  },
+  {
+    id: "paypal",
+    name: "PayPal",
+    icon: Wallet,
+    description: "Pay with your PayPal account",
+  },
+  {
+    id: "apple-pay",
+    name: "Apple Pay",
+    icon: Smartphone,
+    description: "Quick payment with Touch ID",
+  },
+  {
+    id: "google-pay",
+    name: "Google Pay",
+    icon: Smartphone,
+    description: "Pay with Google Wallet",
+  },
+  {
+    id: "bank-transfer",
+    name: "Bank Transfer",
+    icon: Building2,
+    description: "Direct bank account transfer",
+  },
+];
+
+const testimonials = [
+  {
+    quote:
+      "MarineTracker has allowed me to contribute directly to ocean conservation. Their transparency and impact reports are truly inspiring!",
+    author: "Sarah L., Ocean Enthusiast",
+  },
+  {
+    quote:
+      "As a marine biologist, I appreciate the cutting-edge research MarineTracker funds. My donations feel like they're making a tangible difference.",
+    author: "Dr. Alex Chen, Marine Biologist",
+  },
+  {
+    quote:
+      "It's wonderful to see my monthly contributions actively protecting marine life. MarineTracker makes it easy to be part of something bigger.",
+    author: "David R., Regular Donor",
+  },
+];
+
+const faqs = [
+  {
+    question: "How are my donations used?",
+    answer:
+      "Your donations directly fund our marine research, species tracking programs, habitat restoration projects, and community outreach initiatives. We ensure maximum impact with every dollar.",
+  },
+  {
+    question: "Are donations tax-deductible?",
+    answer:
+      "Yes, MarineTracker is a registered non-profit organization. All donations are tax-deductible to the fullest extent of the law. You will receive an email receipt for your records.",
+  },
+  {
+    question: "Can I choose which project my donation supports?",
+    answer:
+      "Currently, donations contribute to our general fund, allowing us to allocate resources where they are most needed across all active projects. We are working on options for project-specific donations in the future.",
+  },
+  {
+    question: "What payment methods do you accept?",
+    answer:
+      "We accept major credit/debit cards (Visa, Mastercard, American Express), PayPal, Apple Pay, Google Pay, and direct bank transfers for your convenience.",
+  },
+];
 
 export default function DonationPage() {
   const [donationAmount, setDonationAmount] = useState("")
@@ -36,6 +118,16 @@ export default function DonationPage() {
   const [newsletterOptIn, setNewsletterOptIn] = useState(false) // New state for newsletter opt-in
   // Add this state variable inside the `DonationPage` component, after `useState` declarations
   const [showThankYouDialog, setShowThankYouDialog] = useState(false)
+  // Add state for all form fields
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [project, setProject] = useState(fundingData[0]?.project || "");
+  const [frequency, setFrequency] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // Animated counter effect
   useEffect(() => {
@@ -71,86 +163,6 @@ export default function DonationPage() {
     return () => clearInterval(timer)
   }, [])
 
-  const paymentMethods = [
-    {
-      id: "credit-card",
-      name: "Credit/Debit Card",
-      icon: CreditCard,
-      description: "Visa, Mastercard, American Express",
-    },
-    {
-      id: "paypal",
-      name: "PayPal",
-      icon: Wallet,
-      description: "Pay with your PayPal account",
-    },
-    {
-      id: "apple-pay",
-      name: "Apple Pay",
-      icon: Smartphone,
-      description: "Quick payment with Touch ID",
-    },
-    {
-      id: "google-pay",
-      name: "Google Pay",
-      icon: Smartphone,
-      description: "Pay with Google Wallet",
-    },
-    {
-      id: "bank-transfer",
-      name: "Bank Transfer",
-      icon: Building2,
-      description: "Direct bank account transfer",
-    },
-  ]
-
-  const fundingData = [
-    { project: "Marine Species Tracking", raised: 75000, goal: 100000, percentage: 75 },
-    { project: "Ocean Habitat Restoration", raised: 45000, goal: 80000, percentage: 56 },
-    { project: "Seabird Protection Program", raised: 62000, goal: 90000, percentage: 69 },
-  ]
-
-  const testimonials = [
-    {
-      quote:
-        "MarineTracker has allowed me to contribute directly to ocean conservation. Their transparency and impact reports are truly inspiring!",
-      author: "Sarah L., Ocean Enthusiast",
-    },
-    {
-      quote:
-        "As a marine biologist, I appreciate the cutting-edge research MarineTracker funds. My donations feel like they're making a tangible difference.",
-      author: "Dr. Alex Chen, Marine Biologist",
-    },
-    {
-      quote:
-        "It's wonderful to see my monthly contributions actively protecting marine life. MarineTracker makes it easy to be part of something bigger.",
-      author: "David R., Regular Donor",
-    },
-  ]
-
-  const faqs = [
-    {
-      question: "How are my donations used?",
-      answer:
-        "Your donations directly fund our marine research, species tracking programs, habitat restoration projects, and community outreach initiatives. We ensure maximum impact with every dollar.",
-    },
-    {
-      question: "Are donations tax-deductible?",
-      answer:
-        "Yes, MarineTracker is a registered non-profit organization. All donations are tax-deductible to the fullest extent of the law. You will receive an email receipt for your records.",
-    },
-    {
-      question: "Can I choose which project my donation supports?",
-      answer:
-        "Currently, donations contribute to our general fund, allowing us to allocate resources where they are most needed across all active projects. We are working on options for project-specific donations in the future.",
-    },
-    {
-      question: "What payment methods do you accept?",
-      answer:
-        "We accept major credit/debit cards (Visa, Mastercard, American Express), PayPal, Apple Pay, Google Pay, and direct bank transfers for your convenience.",
-    },
-  ]
-
   const currentDonationValue = Number.parseFloat(customAmount) || Number.parseFloat(donationAmount) || 0
 
   const impactMessage = useMemo(() => {
@@ -165,6 +177,54 @@ export default function DonationPage() {
     }
     return "Choose an amount to see your potential impact!"
   }, [currentDonationValue])
+
+  // Donation handler
+  async function handleDonation() {
+    setError("");
+    // Validate required fields
+    if (!firstName || !lastName || !email || !selectedPayment || !currency || !project || !frequency) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    const amount = Number.parseFloat(customAmount) || Number.parseFloat(donationAmount);
+    if (!amount || amount <= 0) {
+      setError("Please enter a valid donation amount.");
+      return;
+    }
+    setLoading(true);
+    const { error: supabaseError } = await supabase.from("donations").insert([
+      {
+        donor_name: `${firstName} ${lastName}`,
+        donor_email: email,
+        amount,
+        currency,
+        project_name: project,
+        payment_method: selectedPayment,
+        frequency,
+        message,
+        newsletter_opt_in: newsletterOptIn, 
+      },
+    ])
+    
+    setLoading(false);
+    if (supabaseError) {
+      setError(supabaseError.message);
+    } else {
+      setShowThankYouDialog(true);
+      // Optionally reset form fields
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      setDonationAmount("");
+      setCustomAmount("");
+      setCurrency("USD");
+      setProject(fundingData[0]?.project || "");
+      setSelectedPayment("");
+      setFrequency("");
+      setMessage("");
+      setNewsletterOptIn(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -293,7 +353,7 @@ export default function DonationPage() {
                   <Label htmlFor="currency" className="text-foreground">
                     Currency
                   </Label>
-                  <Select defaultValue="USD">
+                  <Select value={currency} onValueChange={setCurrency} defaultValue="USD">
                     <SelectTrigger className="border-border focus:border-[#17a2b8] focus:ring-[#17a2b8]">
                       <SelectValue placeholder="Select currency" />
                     </SelectTrigger>
@@ -310,7 +370,7 @@ export default function DonationPage() {
                   <Label htmlFor="project-selection" className="text-foreground">
                     Select Project
                   </Label>
-                  <Select>
+                  <Select value={project} onValueChange={setProject}>
                     <SelectTrigger className="border-border focus:border-[#17a2b8] focus:ring-[#17a2b8]">
                       <SelectValue placeholder="Choose a project" />
                     </SelectTrigger>
@@ -372,7 +432,7 @@ export default function DonationPage() {
                   <Label htmlFor="donation-frequency" className="text-foreground">
                     Donation Frequency
                   </Label>
-                  <Select>
+                  <Select value={frequency} onValueChange={setFrequency}>
                     <SelectTrigger className="border-border focus:border-[#17a2b8] focus:ring-[#17a2b8]">
                       <SelectValue placeholder="Select frequency" />
                     </SelectTrigger>
@@ -451,6 +511,8 @@ export default function DonationPage() {
                       id="first-name"
                       placeholder="John"
                       className="border-border focus:border-[#17a2b8] focus:ring-[#17a2b8]"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
@@ -461,6 +523,8 @@ export default function DonationPage() {
                       id="last-name"
                       placeholder="Doe"
                       className="border-border focus:border-[#17a2b8] focus:ring-[#17a2b8]"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
                     />
                   </div>
                 </div>
@@ -474,6 +538,8 @@ export default function DonationPage() {
                     type="email"
                     placeholder="john@example.com"
                     className="border-border focus:border-[#17a2b8] focus:ring-[#17a2b8]"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
 
@@ -499,20 +565,21 @@ export default function DonationPage() {
                     placeholder="Share why marine conservation matters to you..."
                     rows={3}
                     className="border-border focus:border-[#17a2b8] focus:ring-[#17a2b8]"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
                   />
                 </div>
 
                 <Button
                   className="w-full bg-[#17a2b8] hover:bg-[#138496] text-white"
                   size="lg"
-                  onClick={() => {
-                    console.log("Complete Donation button clicked!") // Debugging log
-                    setShowThankYouDialog(true)
-                  }}
+                  onClick={handleDonation}
+                  disabled={loading}
                 >
                   <Heart className="mr-2 h-5 w-5" />
-                  Complete Donation
+                  {loading ? "Processing..." : "Complete Donation"}
                 </Button>
+                {error && <p className="text-red-500 text-sm text-center mt-2">{error}</p>}
 
                 <p className="text-xs text-muted-foreground text-center">
                   Your donation is secure and tax-deductible. You'll receive a receipt via email.

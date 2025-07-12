@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Users, BarChart3, Settings, Home, Fish, Database, BookOpen } from "lucide-react"
+import { Coins } from "lucide-react"
 
 const sidebarItems = [
   {
@@ -30,6 +31,11 @@ const sidebarItems = [
     title: "Resource Management",
     href: "/admin/resources",
     icon: BookOpen
+  },
+  {
+    title: "Donation Management",               
+    href: "/admin/donations",
+    icon: Coins                                  
   },
   {
     title: "Database Diagnostic",
