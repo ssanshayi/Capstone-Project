@@ -35,6 +35,7 @@ interface MarineSpecies {
   population_trend: string
   population_percentage: number
   image_url: string
+  gallery_images?: string[] // New field for gallery images from database
   tags: string[]
   threats: string[]
   created_at: string
@@ -569,7 +570,32 @@ export default function SpeciesDetailPage() {
         </TabsContent>
 
         <TabsContent value="gallery" className="mt-6">
-          <SpeciesGallery species={species} />
+          <SpeciesGallery species={{
+            ...species,
+            imageUrl: species.image_url,
+            galleryImages: species.gallery_images || [],
+            scientificName: species.scientific_name,
+            conservationStatus: species.conservation_status,
+            populationTrend: species.population_trend as any,
+            populationPercentage: species.population_percentage,
+            iconUrl: species.image_url,
+            geographicRange: '',
+            conservationEfforts: '',
+            migrationPattern: '',
+            depthRange: '',
+            averageSpeed: '',
+            taggedCount: 0,
+            firstTagged: '',
+            startPosition: [0, 0],
+            endPosition: [0, 0],
+            speed: 0,
+            size: species.size_range,
+            lifespan: species.lifespan,
+            diet: species.diet,
+            habitat: species.habitat,
+            threats: species.threats || [],
+            tags: species.tags || []
+          }} />
         </TabsContent>
       </Tabs>
 

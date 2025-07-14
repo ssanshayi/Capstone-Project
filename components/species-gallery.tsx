@@ -13,45 +13,10 @@ interface SpeciesGalleryProps {
 export default function SpeciesGallery({ species }: SpeciesGalleryProps) {
   const [selectedImage, setSelectedImage] = useState<number | null>(null)
 
-  // Generate additional images based on the species
-  const generateGalleryImages = () => {
-    // Start with the main image
-    const images = [
-      {
-        url: species.imageUrl || "/placeholder.svg",
-        caption: `${species.name} in its natural habitat`,
-      },
-    ]
-
-    // Add additional placeholder images with relevant captions
-    images.push({
-      url: `/placeholder.svg?height=600&width=800&text=${species.name}+Swimming`,
-      caption: `${species.name} swimming in open water`,
-    })
-
-    images.push({
-      url: `/placeholder.svg?height=600&width=800&text=${species.name}+Close+Up`,
-      caption: `Close-up view of ${species.name}`,
-    })
-
-    if (species.tags.includes("Mammal")) {
-      images.push({
-        url: `/placeholder.svg?height=600&width=800&text=${species.name}+Breaching`,
-        caption: `${species.name} breaching the surface`,
-      })
-    }
-
-    if (species.tags.includes("Predator")) {
-      images.push({
-        url: `/placeholder.svg?height=600&width=800&text=${species.name}+Hunting`,
-        caption: `${species.name} hunting its prey`,
-      })
-    }
-
-    return images
-  }
-
-  const galleryImages = generateGalleryImages()
+  const galleryImages = species.galleryImages?.map((url, index) => ({
+    url,
+    caption: `${species.name} photo ${index + 1}`,
+  })) ?? []
 
   return (
     <div>
@@ -63,7 +28,7 @@ export default function SpeciesGallery({ species }: SpeciesGalleryProps) {
             onClick={() => setSelectedImage(index)}
           >
             <Image
-              src={image.url || "/placeholder.svg"}
+              src={image.url}
               alt={image.caption}
               fill
               className="object-cover hover:scale-105 transition-transform duration-300"
@@ -107,7 +72,7 @@ export default function SpeciesGallery({ species }: SpeciesGalleryProps) {
           <div className="max-w-4xl max-h-[80vh]">
             <div className="relative h-[60vh] w-full">
               <Image
-                src={galleryImages[selectedImage].url || "/placeholder.svg"}
+                src={galleryImages[selectedImage].url}
                 alt={galleryImages[selectedImage].caption}
                 fill
                 className="object-contain"

@@ -232,7 +232,7 @@ export default function DonationPage() {
       <section
         className="relative h-[600px] bg-cover bg-center bg-no-repeat flex items-center justify-center"
         style={{
-          backgroundImage: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('/placeholder.svg?height=600&width=1200')`,
+          backgroundImage: `url('/donate.png')`,
         }}
       >
         <div className="text-center text-white max-w-4xl mx-auto px-4">

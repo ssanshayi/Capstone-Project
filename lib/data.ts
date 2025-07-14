@@ -4,6 +4,7 @@ export interface MarineSpecies {
   scientificName: string
   iconUrl: string
   imageUrl: string
+  galleryImages?: string[] // New field for gallery images
   description: string
   conservationStatus: string
   lifespan: string
