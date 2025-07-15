@@ -487,9 +487,12 @@ export default function Home() {
                 Launch Tracker <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="border-white text-white hover:bg-white/20">
-              <Link href="/register">Create Account</Link>
+            <Button asChild size="lg" className="bg-white text-cyan-700 hover:bg-gray-100">
+              <Link href="/tracking">
+                Create Account <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
             </Button>
+
           </div>
         </div>
       </section>
