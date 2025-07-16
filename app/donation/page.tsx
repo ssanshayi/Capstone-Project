@@ -440,7 +440,6 @@ export default function DonationPage() {
                       <SelectItem value="one-time">One-time Donation</SelectItem>
                       <SelectItem value="monthly">Monthly Recurring</SelectItem>
                       <SelectItem value="quarterly">Quarterly Recurring</SelectItem>
-                      <SelectItem value="annual">Annual Recurring</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
