@@ -155,9 +155,6 @@ export default function MarineSpeciesCard({ species, onClose }: MarineSpeciesCar
         <Button variant="outline" size="sm" onClick={onClose}>
           Close
         </Button>
-        <Button size="sm" className="bg-cyan-700 hover:bg-cyan-800">
-          Track This Species
-        </Button>
       </CardFooter>
     </Card>
   )
